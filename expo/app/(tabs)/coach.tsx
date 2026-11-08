@@ -1,4 +1,3 @@
-import { useRorkAgent } from "@rork-ai/toolkit-sdk";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   View,
@@ -120,13 +119,9 @@ export default function CoachScreen() {
   const [input, setInput] = useState<string>("");
   const listRef = useRef<FlatList<ChatItem> | null>(null);
 
-  const {
-    messages,
-    error,
-    sendMessage,
-  } = useRorkAgent({
-    tools: {},
-  });
+  const messages: { id: string; role: string; parts: { type: string; text?: string }[] }[] = [];
+  const error: Error | null = null;
+  const sendMessage = useCallback((_message: unknown) => {}, []);
 
   const [isSending, setIsSending] = useState<boolean>(false);
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -476,24 +471,7 @@ export default function CoachScreen() {
       if (!consent) return;
 
       logger.log("[Voice] Sending to STT API");
-      const response = await fetch("https://toolkit.rork.com/stt/transcribe/", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`STT API error: ${response.status}`);
-      }
-
-      const result = await response.json() as { text: string; language: string };
-
-      if (result.text?.trim()) {
-        const transcribed = normalizeUserText(result.text, MAX_TRANSCRIPT_CHARS);
-        if (transcribed.length > MAX_INPUT_CHARS) {
-          Alert.alert("Message trop long", "La transcription est trop longue. Elle a été raccourcie avant l'envoi.");
-        }
-        await handleSend(transcribed);
-      }
+      throw new Error("Transcription indisponible pendant la migration.");
     } catch (err) {
       logger.error("[Voice] Transcription error", err);
       Alert.alert(t("coach.voiceError"));
