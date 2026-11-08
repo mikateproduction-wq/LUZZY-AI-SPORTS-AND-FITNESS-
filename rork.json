@@ -1,0 +1,25 @@
+{
+  "$schema": "https://rork.com/schema/rork.json",
+  "apps": [
+    {
+      "name": "Expo",
+      "path": "expo",
+      "framework": "react-native"
+    },
+    {
+      "name": "AI Fitness Coach",
+      "path": "expo",
+      "framework": "react-native"
+    },
+    {
+      "name": "LUZZY AI: Sport & Fitness",
+      "path": "expo",
+      "framework": "react-native"
+    },
+    {
+      "name": "Backend",
+      "path": "backend",
+      "framework": "supabase"
+    }
+  ]
+}
