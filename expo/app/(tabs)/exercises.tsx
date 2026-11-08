@@ -55,7 +55,7 @@ const CATEGORIES: { id: ExerciseCategory | 'all'; name: string; icon: typeof Tar
 
 export default function ExercisesScreen() {
   const { theme, themeOpacity } = useTheme();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<FitnessLevel | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -112,7 +112,7 @@ export default function ExercisesScreen() {
     <Animated.View style={{ flex: 1, opacity: themeOpacity }}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>EXERCICES À LA MAISON</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]} numberOfLines={1}>{t('exercises.homeTitle')}</Text>
           <View style={styles.headerBadges}>
             <View style={styles.flameBadge}>
               <Flame size={16} color="#FF4D4D" fill="#FF4D4D" />
@@ -128,7 +128,7 @@ export default function ExercisesScreen() {
             <Search color={theme.colors.textSecondary} size={19} />
             <TextInput
               style={[styles.searchInput, { color: theme.colors.text }]}
-              placeholder="Rechercher dans les entraînements..."
+              placeholder={t('exercises.searchPlaceholder')}
               placeholderTextColor={theme.colors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -174,8 +174,8 @@ export default function ExercisesScreen() {
               <View style={styles.modalHandle} />
               <View style={styles.modalHeader}>
                 <View>
-                  <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Choisis ton sport</Text>
-                  <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>Filtre les exercices selon ta discipline.</Text>
+                  <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{t('exercises.pickSport')}</Text>
+                  <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>{t('exercises.pickSportDesc')}</Text>
                 </View>
                 <TouchableOpacity onPress={() => setShowSportPicker(false)} style={[styles.modalClose, { backgroundColor: theme.colors.surface }]}>
                   <X size={20} color={theme.colors.text} />
@@ -221,7 +221,7 @@ export default function ExercisesScreen() {
           <View style={styles.challengesHeader}>
             <View style={styles.challengesTitleRow}>
               <Trophy color="#F59E0B" size={15} />
-              <Text style={[styles.challengesTitle, { color: theme.colors.text }]}>Défis rapides du jour</Text>
+              <Text style={[styles.challengesTitle, { color: theme.colors.text }]}>{t('exercises.dailyChallenges')}</Text>
             </View>
             <View style={styles.challengesBadge}>
               <Text style={styles.challengesBadgeText}>3</Text>

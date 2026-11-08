@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { logger } from '@/utils/logger';
+import { secureFetch } from '@/lib/network';
 
 /**
  * Location service — GPS/native only.
@@ -41,7 +42,7 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(
+    const res = await secureFetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=fr&zoom=12`,
       { headers: { 'User-Agent': 'LuzzyAI-Fitness/1.0' }, signal: controller.signal }
     );
@@ -141,7 +142,7 @@ export async function geocodeCityName(cityName: string): Promise<ResolvedLocatio
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(
+    const res = await secureFetch(
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(trimmed)}&format=json&limit=1`,
       { headers: { 'User-Agent': 'LuzzyAI-Fitness/1.0' }, signal: controller.signal }
     );

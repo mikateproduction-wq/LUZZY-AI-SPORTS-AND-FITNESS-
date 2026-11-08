@@ -19,6 +19,7 @@
 import { secureStorage } from "@/utils/secureStorage";
 import { logger } from "@/utils/logger";
 import { isSecureUrl, sanitizeName, sanitizeText } from "@/utils/validation";
+import { secureFetch } from "@/lib/network";
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -98,7 +99,7 @@ export async function supabaseRequest<T>(
   try {
     const headers = await buildHeaders();
     const qs = options.query ? `?${options.query}` : "";
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}${qs}`, {
+    const res = await secureFetch(`${SUPABASE_URL}/rest/v1/${table}${qs}`, {
       method: options.method ?? "GET",
       headers: options.prefer ? { ...headers, Prefer: options.prefer } : headers,
       body: options.body != null ? JSON.stringify(options.body) : undefined,

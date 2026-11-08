@@ -426,7 +426,7 @@ export default function ActivityScreen() {
             testID="activity.reset"
             accessibilityRole="button"
           >
-            <Text style={[styles.resetText, { color: theme.colors.primary }]}>Reset</Text>
+            <Text style={[styles.resetText, { color: theme.colors.primary }]}>{t('activity.reset')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -572,7 +572,7 @@ export default function ActivityScreen() {
         </View>
 
         <View style={[styles.diagramCard, { backgroundColor: theme.colors.surface, marginBottom: 12 }]}>
-          <Text style={[styles.diagramTitle, { color: theme.colors.text }]}>Objectif de pas</Text>
+          <Text style={[styles.diagramTitle, { color: theme.colors.text }]}>{t('activity.diagram.stepGoal')}</Text>
           <View style={styles.stepGoalRow}>
             <View style={styles.stepGoalInfo}>
               <Text style={[styles.stepGoalValue, { color: theme.colors.text }]}>{totalSteps.toLocaleString()}</Text>
@@ -601,7 +601,7 @@ export default function ActivityScreen() {
 
         <View style={[styles.diagramGrid2, { marginBottom: 12 }]}>
           <View style={[styles.diagramCardSmall, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.diagramTitleSmall, { color: theme.colors.textSecondary }]}>Distance</Text>
+            <Text style={[styles.diagramTitleSmall, { color: theme.colors.textSecondary }]}>{t('activity.diagram.distance')}</Text>
             <Text style={[styles.diagramBigValue, { color: theme.colors.text }]}>{stepsToKm(totalSteps)}</Text>
             <Text style={[styles.diagramUnit, { color: theme.colors.primary }]}>km</Text>
             <View style={[styles.miniBarBg, { backgroundColor: theme.colors.border }]}>
@@ -609,17 +609,17 @@ export default function ActivityScreen() {
             </View>
           </View>
           <View style={[styles.diagramCardSmall, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.diagramTitleSmall, { color: theme.colors.textSecondary }]}>Mètres</Text>
+            <Text style={[styles.diagramTitleSmall, { color: theme.colors.textSecondary }]}>{t('activity.diagram.meters')}</Text>
             <Text style={[styles.diagramBigValue, { color: theme.colors.text }]}>{(stepsToMeters(totalSteps) / 1000).toFixed(2)}</Text>
-            <Text style={[styles.diagramUnit, { color: theme.colors.success }]}>× 1000m</Text>
+            <Text style={[styles.diagramUnit, { color: theme.colors.success }]}>{t('activity.diagram.goalMultiplier')}</Text>
             <View style={[styles.miniBarBg, { backgroundColor: theme.colors.border }]}>
               <View style={[styles.miniBarFill, { width: `${Math.min((stepsToMeters(totalSteps) / 8000) * 100, 100)}%`, backgroundColor: theme.colors.success }]} />
             </View>
           </View>
           <View style={[styles.diagramCardSmall, { backgroundColor: theme.colors.surface }]}>
-            <Text style={[styles.diagramTitleSmall, { color: theme.colors.textSecondary }]}>Calories</Text>
+            <Text style={[styles.diagramTitleSmall, { color: theme.colors.textSecondary }]}>{t('activity.diagram.calories')}</Text>
             <Text style={[styles.diagramBigValue, { color: theme.colors.text }]}>{summary.totalCalories}</Text>
-            <Text style={[styles.diagramUnit, { color: theme.colors.error }]}>kcal</Text>
+            <Text style={[styles.diagramUnit, { color: theme.colors.error }]}>{t('activity.diagram.kcal')}</Text>
             <View style={[styles.miniBarBg, { backgroundColor: theme.colors.border }]}>
               <View style={[styles.miniBarFill, { width: `${Math.min((summary.totalCalories / 500) * 100, 100)}%`, backgroundColor: theme.colors.error }]} />
             </View>
@@ -685,7 +685,7 @@ export default function ActivityScreen() {
 
         {isLoading ? (
           <View style={styles.loadingRow} testID="activity.loading">
-            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading…</Text>
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>{t('activity.loading')}</Text>
           </View>
         ) : null}
       </ScrollView>

@@ -13,6 +13,7 @@ import {
 import { Wind, Droplets, MapPin, Pencil, X } from 'lucide-react-native';
 
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { requestUserLocation, geocodeCityName, type ResolvedLocation } from '@/services/locationService';
 import { fetchWeather, getWeatherInfo, type WeatherData } from '@/services/weatherService';
 import { logger } from '@/utils/logger';
@@ -22,6 +23,7 @@ type Status = 'loading' | 'ready' | 'denied' | 'error';
 
 export default function WeatherCard() {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [status, setStatus] = useState<Status>('loading');
   const [location, setLocation] = useState<ResolvedLocation | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
@@ -102,14 +104,14 @@ export default function WeatherCard() {
               {status === 'denied' ? 'Localisation refusée' : 'Météo indisponible'}
             </Text>
           </View>
-          <Text style={[styles.fallbackHelper, { color: theme.colors.textSecondary }]}>Saisissez votre ville pour obtenir directement la météo locale.</Text>
+          <Text style={[styles.fallbackHelper, { color: theme.colors.textSecondary }]}>{t('weather.fallbackHelper')}</Text>
           <TouchableOpacity
             style={[styles.manualCityBtn, { backgroundColor: theme.colors.primary }]}
             onPress={() => setShowCityModal(true)}
             activeOpacity={0.82}
           >
             <Pencil size={14} color="#FFFFFF" />
-            <Text style={styles.manualCityBtnText}>Entrer ma ville</Text>
+            <Text style={styles.manualCityBtnText}>{t('weather.enterCityButton')}</Text>
           </TouchableOpacity>
         </View>
         {renderCityModal()}
@@ -143,7 +145,7 @@ export default function WeatherCard() {
           <Text style={styles.emoji}>{info.emoji}</Text>
           <View style={styles.tempCol}>
             <Text style={[styles.temp, { color: theme.colors.text }]}>{weather.temp}°C</Text>
-            <Text style={[styles.condition, { color: info.color }]}>{info.label}</Text>
+            <Text style={[styles.condition, { color: info.color }]}>{t(info.labelKey)}</Text>
             <Text style={[styles.feels, { color: theme.colors.textSecondary }]}>
               Ressenti {weather.feelsLike}°
             </Text>
@@ -177,15 +179,15 @@ export default function WeatherCard() {
         >
           <View style={[styles.modalCard, { backgroundColor: theme.colors.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>Entrer votre ville</Text>
+              <Text style={[styles.modalTitle, { color: theme.colors.text }]}>{t('weather.enterCityTitle')}</Text>
               <TouchableOpacity onPress={() => setShowCityModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <X size={20} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Text style={[styles.modalHelper, { color: theme.colors.textSecondary }]}>La météo se mettra à jour dès validation.</Text>
+            <Text style={[styles.modalHelper, { color: theme.colors.textSecondary }]}>{t('weather.enterCityHelper')}</Text>
             <TextInput
               style={[styles.modalInput, { backgroundColor: theme.colors.background, color: theme.colors.text, borderColor: theme.colors.border }]}
-              placeholder="Ex: Gombe, Kinshasa"
+              placeholder={t('weather.cityPlaceholder')}
               placeholderTextColor={theme.colors.textSecondary}
               value={cityInput}
               onChangeText={setCityInput}
@@ -203,7 +205,7 @@ export default function WeatherCard() {
               {cityLoading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.modalBtnText}>Valider</Text>
+                <Text style={styles.modalBtnText}>{t('weather.validate')}</Text>
               )}
             </TouchableOpacity>
           </View>

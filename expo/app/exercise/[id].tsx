@@ -39,7 +39,7 @@ export default function ExerciseDetailScreen() {
   const { theme, themeOpacity } = useTheme();
   const { addExerciseSession } = useActivity();
   const { addXp } = useProfile();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { id } = useLocalSearchParams();
   const exercise = getExerciseById(id as string);
   const [hasStarted, setHasStarted] = useState(false);
@@ -323,7 +323,7 @@ export default function ExerciseDetailScreen() {
                       onPress={pauseTimer}
                     >
                       <Pause color="#FFF" size={20} fill="#FFF" />
-                      <Text style={styles.timerBtnText}>Pause</Text>
+                      <Text style={styles.timerBtnText}>{t('exercise.pause')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.timerBtnSmall, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border }]}
@@ -339,7 +339,7 @@ export default function ExerciseDetailScreen() {
                     onPress={startTimer}
                   >
                     <Play color="#FFF" size={20} fill="#FFF" />
-                    <Text style={styles.timerBtnText}>Reprendre</Text>
+                    <Text style={styles.timerBtnText}>{t('exercise.resume')}</Text>
                   </TouchableOpacity>
                 )}
               </View>

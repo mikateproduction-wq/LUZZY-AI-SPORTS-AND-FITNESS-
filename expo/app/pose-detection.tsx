@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { router, Stack } from 'expo-router';
 import { ArrowLeft, Zap } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { logger } from '@/utils/logger';
 
 const POSE_HTML = `<!DOCTYPE html>
@@ -57,31 +58,31 @@ canvas{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;tr
 
   <div id="start-screen">
     <div id="start-icon">⚡</div>
-    <div id="start-title">Détection de pose</div>
-    <div id="start-sub">Analyse en temps réel de votre posture avec l'IA MoveNet</div>
-    <button id="start-btn" onclick="startAll()">📷 Démarrer la caméra</button>
-    <div id="lib-status">Chargement des bibliothèques IA...</div>
+    <div id="start-title">__POSE_TITLE__</div>
+    <div id="start-sub">__POSE_SUBTITLE__</div>
+    <button id="start-btn" onclick="startAll()">📷 __POSE_START__</button>
+    <div id="lib-status">__POSE_LOADING_LIBS__</div>
   </div>
 
   <div id="loading-overlay">
     <div class="spinner"></div>
-    <div id="loading-text">Démarrage...</div>
+    <div id="loading-text">__POSE_LOADING_START__</div>
   </div>
 
   <div id="err-screen">
     <div id="err-icon">⚠️</div>
     <div id="err-msg"></div>
-    <button id="retry-btn" onclick="resetAll()">Réessayer</button>
+    <button id="retry-btn" onclick="resetAll()">__POSE_RETRY__</button>
   </div>
 
   <div id="ui">
     <div id="controls">
       <button id="flip-btn" onclick="flipCam()">🔄</button>
-      <button id="stop-btn" onclick="stopAll()">⏹ Arrêter</button>
+      <button id="stop-btn" onclick="stopAll()">⏹ __POSE_STOP__</button>
     </div>
     <div id="info-row">
       <span id="fps-badge" style="display:none">0 FPS</span>
-      <span id="status-badge">Pose détectée</span>
+      <span id="status-badge">__POSE_DETECTED__</span>
     </div>
   </div>
 </div>
@@ -382,8 +383,34 @@ checkLibsReady();
 </body>
 </html>`;
 
+function escapeHtmlText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function localizePoseHtml(html: string, labels: Record<string, string>): string {
+  return Object.entries(labels).reduce(
+    (acc, [marker, value]) => acc.split(marker).join(escapeHtmlText(value)),
+    html
+  );
+}
+
 export default function PoseDetectionScreen() {
   const { theme } = useTheme();
+  const { t } = useLanguage();
+  const poseHtml = useMemo(
+    () =>
+      localizePoseHtml(POSE_HTML, {
+        '__POSE_TITLE__': t('pose.title'),
+        '__POSE_SUBTITLE__': t('pose.subtitle'),
+        '__POSE_START__': t('pose.start'),
+        '__POSE_LOADING_LIBS__': t('pose.loadingLibs'),
+        '__POSE_LOADING_START__': t('pose.loadingStart'),
+        '__POSE_RETRY__': t('pose.retry'),
+        '__POSE_STOP__': t('pose.stop'),
+        '__POSE_DETECTED__': t('pose.detected'),
+      }),
+    [t]
+  );
   const insets = useSafeAreaInsets();
   const containerRef = useRef<View>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -409,7 +436,7 @@ export default function PoseDetectionScreen() {
       }
       if (iframeRef.current) return;
 
-      const blob = new Blob([POSE_HTML], { type: 'text/html' });
+      const blob = new Blob([poseHtml], { type: 'text/html' });
       const blobUrl = URL.createObjectURL(blob);
 
       const iframe = document.createElement('iframe');
@@ -436,13 +463,13 @@ export default function PoseDetectionScreen() {
         iframeRef.current = null;
       }
     };
-  }, []);
+  }, [poseHtml]);
 
   const renderNative = useCallback(() => {
     const WebView = require('react-native-webview').default;
     return (
       <WebView
-        source={{ html: POSE_HTML, baseUrl: 'https://localhost' }}
+        source={{ html: poseHtml, baseUrl: 'https://localhost' }}
         style={styles.webview}
         originWhitelist={['https://localhost']}
         javaScriptEnabled
@@ -506,7 +533,7 @@ export default function PoseDetectionScreen() {
               >
                 <Zap color="#00E5FF" size={16} />
               </Animated.View>
-              <Text style={styles.titleText}>Squelette IA</Text>
+              <Text style={styles.titleText}>{t('pose.skeleton')}</Text>
             </View>
 
             <View style={styles.filler} />

@@ -449,7 +449,7 @@ export default function SettingsScreen() {
         <View style={[styles.infoCard, { backgroundColor: theme.colors.surface }]}>
           <View style={styles.aboutLogoRow}>
             <Image
-              source={{ uri: 'https://pub-e001eb4506b145aa938b5d3badbff6a5.r2.dev/attachments/y0ufxbeab3usq9x1qeh9x.png' }}
+              source={require('@/assets/images/logo.png')}
               style={styles.aboutLogo}
               resizeMode="contain"
             />
@@ -478,7 +478,7 @@ export default function SettingsScreen() {
 
           <View style={styles.socialDivider}>
             <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
-            <Text style={[styles.dividerText, { color: theme.colors.textSecondary }]}>Nous suivre</Text>
+            <Text style={[styles.dividerText, { color: theme.colors.textSecondary }]}>{t('social.followUs')}</Text>
             <View style={[styles.dividerLine, { backgroundColor: theme.colors.border }]} />
           </View>
 
@@ -498,7 +498,7 @@ export default function SettingsScreen() {
               activeOpacity={0.8}
             >
               <Text style={styles.socialBtnIcon}>f</Text>
-              <Text style={styles.socialBtnText}>Facebook</Text>
+              <Text style={styles.socialBtnText}>{t('social.facebook')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

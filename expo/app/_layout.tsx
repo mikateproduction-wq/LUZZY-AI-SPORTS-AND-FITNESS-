@@ -51,8 +51,6 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="auth" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-      <Stack.Screen name="splash" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-      <Stack.Screen name="loading" options={{ headerShown: false, presentation: "fullScreenModal" }} />
       <Stack.Screen name="exercise/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>

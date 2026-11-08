@@ -644,7 +644,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={[styles.socialCard, { backgroundColor: theme.colors.surface }]}>
-          <Text style={[styles.socialTitle, { color: theme.colors.textSecondary }]}>FOLLOW US</Text>
+          <Text style={[styles.socialTitle, { color: theme.colors.textSecondary }]}>{t('social.followUs')}</Text>
           <View style={styles.socialRow}>
             <TouchableOpacity
               style={[styles.socialButton, styles.socialX]}
@@ -661,7 +661,7 @@ export default function ProfileScreen() {
               activeOpacity={0.8}
             >
               <Text style={styles.socialFbIcon}>f</Text>
-              <Text style={styles.socialButtonText}>Facebook</Text>
+              <Text style={styles.socialButtonText}>{t('social.facebook')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity

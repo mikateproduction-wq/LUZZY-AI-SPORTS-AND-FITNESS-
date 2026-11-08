@@ -1,4 +1,6 @@
 import { logger } from '@/utils/logger';
+import type { Key } from '@/constants/i18n';
+import { secureFetch } from '@/lib/network';
 
 /**
  * Weather service — Open-Meteo (free, no API key, reliable worldwide coverage).
@@ -32,7 +34,7 @@ export async function fetchWeather(lat: number, lon: number): Promise<WeatherDat
   const timeoutId = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const res = await fetch(
+    const res = await secureFetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,relativehumidity_2m&timezone=auto`,
       { signal: controller.signal }
     );
@@ -62,30 +64,30 @@ export function clearWeatherCache(): void {
   cache.clear();
 }
 
-const WMO: Record<string, { emoji: string; label: string; color: string }> = {
-  '0': { emoji: '☀️', label: 'Ensoleillé', color: '#F59E0B' },
-  '1': { emoji: '🌤️', label: 'Peu nuageux', color: '#FBBF24' },
-  '2': { emoji: '⛅', label: 'Partiellement nuageux', color: '#94A3B8' },
-  '3': { emoji: '☁️', label: 'Nuageux', color: '#64748B' },
-  '45': { emoji: '🌫️', label: 'Brouillard', color: '#94A3B8' },
-  '48': { emoji: '🌫️', label: 'Brouillard givrant', color: '#94A3B8' },
-  '51': { emoji: '🌦️', label: 'Bruine légère', color: '#60A5FA' },
-  '53': { emoji: '🌦️', label: 'Bruine modérée', color: '#60A5FA' },
-  '55': { emoji: '🌦️', label: 'Bruine dense', color: '#3B82F6' },
-  '61': { emoji: '🌧️', label: 'Pluie légère', color: '#3B82F6' },
-  '63': { emoji: '🌧️', label: 'Pluie modérée', color: '#2563EB' },
-  '65': { emoji: '🌧️', label: 'Pluie forte', color: '#1D4ED8' },
-  '71': { emoji: '❄️', label: 'Neige légère', color: '#93C5FD' },
-  '73': { emoji: '❄️', label: 'Neige modérée', color: '#60A5FA' },
-  '75': { emoji: '❄️', label: 'Neige forte', color: '#3B82F6' },
-  '80': { emoji: '🌦️', label: 'Averses légères', color: '#3B82F6' },
-  '81': { emoji: '🌧️', label: 'Averses modérées', color: '#2563EB' },
-  '82': { emoji: '⛈️', label: 'Averses violentes', color: '#1D4ED8' },
-  '95': { emoji: '⛈️', label: 'Orage', color: '#7C3AED' },
-  '96': { emoji: '⛈️', label: 'Orage avec grêle', color: '#6D28D9' },
-  '99': { emoji: '⛈️', label: 'Orage violent', color: '#5B21B6' },
+const WMO: Record<string, { emoji: string; labelKey: Key; color: string }> = {
+  '0': { emoji: '☀️', labelKey: 'weather.code.clear', color: '#F59E0B' },
+  '1': { emoji: '🌤️', labelKey: 'weather.code.mainlyClear', color: '#FBBF24' },
+  '2': { emoji: '⛅', labelKey: 'weather.code.partlyCloudy', color: '#94A3B8' },
+  '3': { emoji: '☁️', labelKey: 'weather.code.cloudy', color: '#64748B' },
+  '45': { emoji: '🌫️', labelKey: 'weather.code.fog', color: '#94A3B8' },
+  '48': { emoji: '🌫️', labelKey: 'weather.code.rimeFog', color: '#94A3B8' },
+  '51': { emoji: '🌦️', labelKey: 'weather.code.drizzleLight', color: '#60A5FA' },
+  '53': { emoji: '🌦️', labelKey: 'weather.code.drizzleModerate', color: '#60A5FA' },
+  '55': { emoji: '🌦️', labelKey: 'weather.code.drizzleDense', color: '#3B82F6' },
+  '61': { emoji: '🌧️', labelKey: 'weather.code.rainLight', color: '#3B82F6' },
+  '63': { emoji: '🌧️', labelKey: 'weather.code.rainModerate', color: '#2563EB' },
+  '65': { emoji: '🌧️', labelKey: 'weather.code.rainHeavy', color: '#1D4ED8' },
+  '71': { emoji: '❄️', labelKey: 'weather.code.snowLight', color: '#93C5FD' },
+  '73': { emoji: '❄️', labelKey: 'weather.code.snowModerate', color: '#60A5FA' },
+  '75': { emoji: '❄️', labelKey: 'weather.code.snowHeavy', color: '#3B82F6' },
+  '80': { emoji: '🌦️', labelKey: 'weather.code.showersLight', color: '#3B82F6' },
+  '81': { emoji: '🌧️', labelKey: 'weather.code.showersModerate', color: '#2563EB' },
+  '82': { emoji: '⛈️', labelKey: 'weather.code.showersViolent', color: '#1D4ED8' },
+  '95': { emoji: '⛈️', labelKey: 'weather.code.thunderstorm', color: '#7C3AED' },
+  '96': { emoji: '⛈️', labelKey: 'weather.code.thunderstormHail', color: '#6D28D9' },
+  '99': { emoji: '⛈️', labelKey: 'weather.code.thunderstormSevere', color: '#5B21B6' },
 };
 
 export function getWeatherInfo(code: number) {
-  return WMO[String(code)] ?? { emoji: '🌡️', label: 'Variable', color: '#94A3B8' };
+  return WMO[String(code)] ?? { emoji: '🌡️', labelKey: 'weather.code.unknown' as Key, color: '#94A3B8' };
 }

@@ -14,10 +14,9 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Send, Sparkles, ShieldAlert, Mic, MicOff, Camera, ImageIcon, X } from "lucide-react-native";
+import { Send, Sparkles, ShieldAlert, Camera, ImageIcon, X } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
-import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from "expo-audio";
 
 import { useProfile } from "@/contexts/ProfileContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -54,20 +53,10 @@ function extractMessageText(parts: unknown): string {
   return chunks.join("\n").trim();
 }
 
-type WebRecorderRef = {
-  mediaRecorder: MediaRecorder;
-  chunks: Blob[];
-  stream: MediaStream;
-};
-
 const MAX_INPUT_CHARS = 1200;
-const MAX_TRANSCRIPT_CHARS = 1400;
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_BASE64_CHARS = Math.ceil((MAX_IMAGE_BYTES * 4) / 3);
-const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
-const MAX_RECORDING_MS = 30_000;
 const ALLOWED_IMAGE_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-const ALLOWED_AUDIO_MIME_TYPES = ["audio/mp4", "audio/m4a", "audio/wav", "audio/webm"];
 
 function getSafeCoachErrorText(): string {
   return "Le coach est momentanément indisponible. Réessayez dans un instant.";
@@ -124,17 +113,11 @@ export default function CoachScreen() {
   const sendMessage = useCallback((_message: unknown) => {}, []);
 
   const [isSending, setIsSending] = useState<boolean>(false);
-  const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
   const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
   const [pendingImageBase64, setPendingImageBase64] = useState<string | null>(null);
   const [pendingImageMime, setPendingImageMime] = useState<string>("image/jpeg");
   const [aiConsentAccepted, setAiConsentAccepted] = useState<boolean>(false);
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const webRecorderRef = useRef<WebRecorderRef | null>(null);
-  const recordingStartedAtRef = useRef<number>(0);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const introText = useMemo(() => {
     const bits: string[] = [];
@@ -286,20 +269,6 @@ export default function CoachScreen() {
     });
   }, []);
 
-  const startPulse = useCallback(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.2, duration: 600, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [pulseAnim]);
-
-  const stopPulse = useCallback(() => {
-    pulseAnim.stopAnimation();
-    pulseAnim.setValue(1);
-  }, [pulseAnim]);
-
   const requestAiConsent = useCallback((): Promise<boolean> => {
     if (aiConsentAccepted) return Promise.resolve(true);
 
@@ -320,7 +289,7 @@ export default function CoachScreen() {
       const text = normalizeUserText(overrideText ?? input);
       if (!text || isSending) return;
       if (looksLikePromptInjection(text)) {
-        Alert.alert("Demande refusée", "Je ne peux pas révéler les consignes internes ni les données privées.");
+        Alert.alert(t("coach.refusedTitle"), t("coach.refusedBody"));
         return;
       }
 
@@ -370,127 +339,6 @@ export default function CoachScreen() {
     [input, isSending, pendingImageBase64, pendingImageMime, pendingImageUri, requestAiConsent, scrollToEnd, sendMessage, systemPrefix]
   );
 
-  const startRecordingNative = useCallback(async () => {
-    try {
-      const permission = await AudioModule.requestRecordingPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert(t("coach.micPermissionDenied"));
-        return;
-      }
-
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-
-      // Re-arms the recorder after a previous stop, then starts recording.
-      await recorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY);
-      recorder.record();
-      recordingStartedAtRef.current = Date.now();
-      setIsRecording(true);
-      startPulse();
-      logger.log("[Voice] Recording started (native)");
-    } catch (err) {
-      logger.error("[Voice] startRecording error", err);
-      Alert.alert(t("coach.voiceError"));
-    }
-  }, [recorder, startPulse, t]);
-
-  const startRecordingWeb = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm", audioBitsPerSecond: 48000 });
-      const chunks: Blob[] = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      mediaRecorder.start();
-      webRecorderRef.current = { mediaRecorder, chunks, stream };
-      recordingStartedAtRef.current = Date.now();
-      setIsRecording(true);
-      startPulse();
-      logger.log("[Voice] Recording started (web)");
-    } catch (err) {
-      logger.error("[Voice] startRecording web error", err);
-      Alert.alert(t("coach.voiceError"));
-    }
-  }, [startPulse, t]);
-
-  const stopAndTranscribe = useCallback(async () => {
-    setIsRecording(false);
-    stopPulse();
-    const recordedMs = Date.now() - recordingStartedAtRef.current;
-    setIsTranscribing(true);
-
-    try {
-      const formData = new FormData();
-
-      if (Platform.OS === "web" && webRecorderRef.current) {
-        const { mediaRecorder, chunks, stream } = webRecorderRef.current;
-
-        await new Promise<void>((resolve) => {
-          mediaRecorder.onstop = () => resolve();
-          mediaRecorder.stop();
-        });
-
-        stream.getTracks().forEach((track) => track.stop());
-
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        if (recordedMs > MAX_RECORDING_MS + 1500) throw new Error("Audio duration too long");
-        if (blob.size > MAX_AUDIO_BYTES) throw new Error("Audio file too large");
-        const file = new File([blob], "recording.webm", { type: "audio/webm" });
-        formData.append("audio", file);
-        webRecorderRef.current = null;
-      } else if (recorder.isRecording || recorder.uri) {
-        await recorder.stop();
-
-        await setAudioModeAsync({ allowsRecording: false });
-
-        const uri = recorder.uri;
-        if (!uri) throw new Error("No recording URI");
-
-        const uriParts = uri.split(".");
-        const rawExt = uriParts[uriParts.length - 1]?.toLowerCase() ?? 'm4a';
-        const fileExt = rawExt === 'caf' ? 'm4a' : rawExt;
-        const mimeType = fileExt === 'wav' ? 'audio/wav' : fileExt === 'webm' ? 'audio/webm' : fileExt === 'm4a' ? 'audio/m4a' : 'audio/mp4';
-        if (recordedMs > MAX_RECORDING_MS + 1500) throw new Error("Audio duration too long");
-        if (!ALLOWED_AUDIO_MIME_TYPES.includes(mimeType)) throw new Error("Unsupported audio type");
-
-        const audioFile = {
-          uri,
-          name: `recording.${fileExt}`,
-          type: mimeType,
-        };
-        formData.append("audio", audioFile as unknown as Blob);
-      } else {
-        throw new Error("No active recording");
-      }
-
-      formData.append("language", language);
-
-      const consent = await requestAiConsent();
-      if (!consent) return;
-
-      logger.log("[Voice] Sending to STT API");
-      throw new Error("Transcription indisponible pendant la migration.");
-    } catch (err) {
-      logger.error("[Voice] Transcription error", err);
-      Alert.alert(t("coach.voiceError"));
-    } finally {
-      setIsTranscribing(false);
-    }
-  }, [handleSend, language, requestAiConsent, stopPulse, t]);
-
-  const handleVoice = useCallback(async () => {
-    if (isRecording) {
-      await stopAndTranscribe();
-    } else {
-      if (Platform.OS === "web") {
-        await startRecordingWeb();
-      } else {
-        await startRecordingNative();
-      }
-    }
-  }, [isRecording, startRecordingNative, startRecordingWeb, stopAndTranscribe]);
 
   const handleCamera = useCallback(async () => {
     try {
@@ -511,7 +359,7 @@ export default function CoachScreen() {
         const asset = result.assets[0];
         const safeBase64 = await getSafeImageBase64(asset);
         if (!safeBase64) {
-          Alert.alert("Image refusée", "Format non supporté ou image trop volumineuse (max 2 Mo).");
+          Alert.alert(t("coach.imageRefusedTitle"), t("coach.imageRefusedBody"));
           return;
         }
         setPendingImageUri(asset.uri);
@@ -537,7 +385,7 @@ export default function CoachScreen() {
         const asset = result.assets[0];
         const safeBase64 = await getSafeImageBase64(asset);
         if (!safeBase64) {
-          Alert.alert("Image refusée", "Format non supporté ou image trop volumineuse (max 2 Mo).");
+          Alert.alert(t("coach.imageRefusedTitle"), t("coach.imageRefusedBody"));
           return;
         }
         setPendingImageUri(asset.uri);
@@ -704,7 +552,7 @@ export default function CoachScreen() {
           <View style={styles.mediaButtons}>
             <TouchableOpacity
               onPress={handleCamera}
-              disabled={isSending || isRecording}
+              disabled={isSending}
               style={[styles.mediaBtn, { backgroundColor: theme.colors.primary + "15" }]}
               testID="coach.camera"
             >
@@ -712,7 +560,7 @@ export default function CoachScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleGallery}
-              disabled={isSending || isRecording}
+              disabled={isSending}
               style={[styles.mediaBtn, { backgroundColor: theme.colors.primary + "15" }]}
               testID="coach.gallery"
             >
@@ -728,38 +576,13 @@ export default function CoachScreen() {
             <TextInput
               value={input}
               onChangeText={setInput}
-              placeholder={isTranscribing ? t("coach.transcribing") : t("coach.inputPlaceholder")}
+              placeholder={t("coach.inputPlaceholder")}
               placeholderTextColor={theme.colors.textSecondary}
               style={[styles.input, { color: theme.colors.text }]}
               multiline
               maxLength={1200}
-              editable={!isTranscribing}
               testID="coach.input"
             />
-            {Platform.OS !== 'web' && (
-              <Animated.View style={{ transform: [{ scale: isRecording ? pulseAnim : 1 }] }}>
-                <TouchableOpacity
-                  onPress={handleVoice}
-                  disabled={isSending || isTranscribing}
-                  style={[
-                    styles.voiceButton,
-                    {
-                      backgroundColor: isRecording ? theme.colors.error : theme.colors.surface,
-                      borderColor: isRecording ? theme.colors.error : theme.colors.border,
-                    },
-                  ]}
-                  testID="coach.voice"
-                >
-                  {isRecording ? (
-                    <MicOff color="#FFFFFF" size={18} />
-                  ) : isTranscribing ? (
-                    <ActivityIndicator size="small" color={theme.colors.primary} />
-                  ) : (
-                    <Mic color={theme.colors.primary} size={18} />
-                  )}
-                </TouchableOpacity>
-              </Animated.View>
-            )}
             <TouchableOpacity
               onPress={() => handleSend()}
               disabled={(!input.trim() && !pendingImageUri) || isSending}
@@ -954,14 +777,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     paddingTop: 6,
     paddingBottom: 6,
-  },
-  voiceButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
   sendButton: {
     width: 40,

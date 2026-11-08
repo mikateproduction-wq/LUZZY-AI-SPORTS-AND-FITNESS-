@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,119 +10,137 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Play, Pause, RotateCcw, Timer as TimerIcon, Clock } from 'lucide-react-native';
 
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useActivity } from '@/contexts/ActivityContext';
 import { logger } from '@/utils/logger';
+import { formatClock, minutesToFlush, remainingMs } from '@/lib/timer';
 
 type Mode = 'stopwatch' | 'timer';
 
+const TICK_MS = 50;
+
 export default function TimerScreen() {
   const { theme, themeOpacity } = useTheme();
+  const { t } = useLanguage();
   const { addExerciseMinutes } = useActivity();
   const [mode, setMode] = useState<Mode>('stopwatch');
-  const [time, setTime] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [timerDuration, setTimerDuration] = useState(60);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [timerDuration, setTimerDuration] = useState<number>(60);
+  const [baseMs, setBaseMs] = useState<number>(0);
+  const [now, setNow] = useState<number>(() => Date.now());
+  const startedAtRef = useRef<number | null>(null);
+  const loggedMsRef = useRef<number>(0);
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const lastLoggedElapsedMsRef = useRef<number>(0);
+  const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const durationMs = useMemo(() => timerDuration * 1000, [timerDuration]);
+
+  const elapsedAt = useCallback(
+    (atMs: number): number => {
+      if (!isRunning || startedAtRef.current === null) return baseMs;
+      return baseMs + (atMs - startedAtRef.current);
+    },
+    [baseMs, isRunning]
+  );
+
+  const liveElapsed = elapsedAt(now);
+  const displayMs = mode === 'stopwatch' ? liveElapsed : remainingMs(durationMs, liveElapsed);
+
+  const flushToActivity = useCallback(
+    (elapsedMs: number) => {
+      const { minutes, nextLoggedMs } = minutesToFlush(loggedMsRef.current, elapsedMs);
+      if (minutes <= 0) return;
+      loggedMsRef.current = nextLoggedMs;
+      logger.log('[Timer] logging exercise minutes', { minutes, mode });
+      addExerciseMinutes(minutes);
+    },
+    [addExerciseMinutes, mode]
+  );
+
+  const stopPulse = useCallback(() => {
+    pulseLoopRef.current?.stop();
+    pulseLoopRef.current = null;
+    pulseAnim.setValue(1);
+  }, [pulseAnim]);
+
+  const startPulse = useCallback(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.05, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+      ])
+    );
+    pulseLoopRef.current = loop;
+    loop.start();
+  }, [pulseAnim]);
+
+  const pauseAt = useCallback(
+    (atMs: number) => {
+      const elapsed = elapsedAt(atMs);
+      startedAtRef.current = null;
+      setBaseMs(elapsed);
+      setIsRunning(false);
+      stopPulse();
+      return elapsed;
+    },
+    [elapsedAt, stopPulse]
+  );
 
   useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setTime((prevTime) => {
-          if (mode === 'timer') {
-            if (prevTime <= 0) {
-              setIsRunning(false);
-              return 0;
-            }
-            return prevTime - 10;
-          }
-          return prevTime + 10;
-        });
-      }, 10);
+    if (!isRunning) return;
+    const id = setInterval(() => setNow(Date.now()), TICK_MS);
+    return () => clearInterval(id);
+  }, [isRunning]);
 
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.05,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      pulseAnim.setValue(1);
-    }
+  useEffect(() => {
+    if (!isRunning || mode !== 'timer') return;
+    if (liveElapsed < durationMs) return;
+    const elapsed = pauseAt(Date.now());
+    setBaseMs(durationMs);
+    flushToActivity(Math.min(elapsed, durationMs));
+  }, [isRunning, mode, liveElapsed, durationMs, pauseAt, flushToActivity]);
 
+  useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      pulseLoopRef.current?.stop();
     };
-  }, [isRunning, mode, pulseAnim]);
-
-  const formatTime = (milliseconds: number) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    const ms = Math.floor((milliseconds % 1000) / 10);
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
-  };
-
-  const totalPlannedMs = useMemo(() => timerDuration * 1000, [timerDuration]);
-
-  const getElapsedMs = (currentTime: number) => {
-    if (mode === 'stopwatch') return currentTime;
-    return Math.max(0, totalPlannedMs - currentTime);
-  };
-
-  const logElapsedToActivity = (currentTime: number) => {
-    const elapsed = getElapsedMs(currentTime);
-    const delta = Math.max(0, elapsed - lastLoggedElapsedMsRef.current);
-    if (delta < 1000) return;
-
-    lastLoggedElapsedMsRef.current = elapsed;
-
-    const minutes = Math.floor(delta / 60000);
-    if (minutes <= 0) return;
-
-    logger.log('[Timer] logging exercise minutes', { minutes, mode });
-    addExerciseMinutes(minutes);
-  };
+  }, []);
 
   const handleStart = () => {
-    if (mode === 'timer' && time === 0) {
-      setTime(timerDuration * 1000);
+    if (mode === 'timer' && baseMs >= durationMs) {
+      loggedMsRef.current = 0;
+      setBaseMs(0);
     }
+    const nowMs = Date.now();
+    startedAtRef.current = nowMs;
+    setNow(nowMs);
     setIsRunning(true);
+    startPulse();
   };
 
   const handlePause = () => {
-    logElapsedToActivity(time);
+    const elapsed = pauseAt(Date.now());
+    flushToActivity(elapsed);
+  };
+
+  const resetTo = (nextMode: Mode) => {
+    const elapsed = isRunning ? pauseAt(Date.now()) : baseMs;
+    flushToActivity(elapsed);
+    startedAtRef.current = null;
+    loggedMsRef.current = 0;
     setIsRunning(false);
+    stopPulse();
+    setBaseMs(0);
+    setNow(Date.now());
+    setMode(nextMode);
   };
 
   const handleReset = () => {
-    logElapsedToActivity(time);
-    setIsRunning(false);
-    lastLoggedElapsedMsRef.current = 0;
-    setTime(mode === 'timer' ? timerDuration * 1000 : 0);
+    resetTo(mode);
   };
 
   const handleModeChange = (newMode: Mode) => {
-    logElapsedToActivity(time);
-    setMode(newMode);
-    setIsRunning(false);
-    lastLoggedElapsedMsRef.current = 0;
-    setTime(newMode === 'timer' ? timerDuration * 1000 : 0);
+    resetTo(newMode);
   };
 
   const TimerPreset = ({ seconds, label }: { seconds: number; label: string }) => (
@@ -136,12 +154,10 @@ export default function TimerScreen() {
         },
       ]}
       onPress={() => {
-        logElapsedToActivity(time);
-        lastLoggedElapsedMsRef.current = 0;
+        if (isRunning) return;
         setTimerDuration(seconds);
-        if (!isRunning) {
-          setTime(seconds * 1000);
-        }
+        setBaseMs(0);
+        loggedMsRef.current = 0;
       }}
     >
       <Text
@@ -161,7 +177,7 @@ export default function TimerScreen() {
     <Animated.View style={{ flex: 1, opacity: themeOpacity }}>
       <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>Timer</Text>
+        <Text style={[styles.title, { color: theme.colors.text }]}>{t('timer.title')}</Text>
       </View>
 
       <View style={styles.modeSelector}>
@@ -186,7 +202,7 @@ export default function TimerScreen() {
               },
             ]}
           >
-            Stopwatch
+            {t('timer.stopwatch')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -210,7 +226,7 @@ export default function TimerScreen() {
               },
             ]}
           >
-            Timer
+            {t('timer.countdown')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -218,7 +234,7 @@ export default function TimerScreen() {
       {mode === 'timer' && !isRunning && (
         <View style={styles.presetsContainer}>
           <Text style={[styles.presetsTitle, { color: theme.colors.textSecondary }]}>
-            Quick Presets
+            {t('timer.presets')}
           </Text>
           <View style={styles.presetsGrid}>
             <TimerPreset seconds={30} label="30s" />
@@ -242,10 +258,10 @@ export default function TimerScreen() {
           ]}
         >
           <Text style={[styles.timerText, { color: theme.colors.text }]}>
-            {formatTime(time)}
+            {formatClock(displayMs)}
           </Text>
           <Text style={[styles.timerLabel, { color: theme.colors.textSecondary }]}>
-            {mode === 'stopwatch' ? 'Elapsed Time' : 'Time Remaining'}
+            {mode === 'stopwatch' ? t('timer.elapsed') : t('timer.remaining')}
           </Text>
         </Animated.View>
       </View>

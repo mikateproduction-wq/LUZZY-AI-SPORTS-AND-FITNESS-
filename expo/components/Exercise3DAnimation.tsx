@@ -4,6 +4,7 @@ import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import { Rotate3d } from 'lucide-react-native';
 
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import ExerciseDiagram from '@/components/ExerciseDiagram';
 import {
   CLIP_CYCLE_SECONDS,
@@ -26,6 +27,7 @@ interface ViewerHtmlParams {
   background: string;
   accent: string;
   textColor: string;
+  loadingText: string;
   hasFront: boolean;
   frontAxis: string;
   upAxis: string;
@@ -69,7 +71,7 @@ function buildViewerHtml(params: ViewerHtmlParams): string {
 </head>
 <body>
 <canvas id="c"></canvas>
-<div id="loader"><div class="spin"></div><div id="msg">Chargement du coach 3D…</div></div>
+<div id="loader"><div class="spin"></div><div id="msg">${params.loadingText}</div></div>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/+esm';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js/+esm';
@@ -275,6 +277,7 @@ export default function Exercise3DAnimation({
   height = 320,
 }: Exercise3DAnimationProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [failed, setFailed] = useState<boolean>(false);
 
   const clipKey = getClipKeyForExercise(exerciseName, category);
@@ -289,12 +292,13 @@ export default function Exercise3DAnimation({
       background: theme.colors.surface,
       accent: theme.colors.primary,
       textColor: theme.colors.textSecondary,
+      loadingText: t('exercise3d.loading'),
       hasFront: EXERCISE_3D_MODEL.hasIntrinsicFront,
       frontAxis: EXERCISE_3D_MODEL.localFrontAxis,
       upAxis: EXERCISE_3D_MODEL.localUpAxis,
       cycleSeconds: CLIP_CYCLE_SECONDS,
     });
-  }, [ready, clipUrl, theme.colors.surface, theme.colors.primary, theme.colors.textSecondary]);
+  }, [ready, clipUrl, theme.colors.surface, theme.colors.primary, theme.colors.textSecondary, t]);
 
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
