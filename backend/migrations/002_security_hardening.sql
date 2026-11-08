@@ -105,7 +105,7 @@ alter table public.profiles
 -- ---------------------------------------------------------------------------
 -- 5. user_id() : verrouiller le search_path (CWE-45 — SECURITY DEFINER durci).
 --    On réapplique la définition avec un search_path figé. Si la fonction
---    n'existe pas encore, la créer (third-party auth Rork : sub => user id).
+--    n'existe pas encore, la créer (auth tierce : sub => user id).
 -- ---------------------------------------------------------------------------
 create or replace function public.user_id()
 returns text

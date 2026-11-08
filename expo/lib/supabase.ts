@@ -2,7 +2,7 @@
  * Lightweight Supabase REST client — Expo Go compatible (no native module).
  * Uses fetch directly against the PostgREST API.
  *
- * The Rork Auth JWT is stored in secureStorage and sent as
+ * The Supabase Auth JWT is stored in secureStorage and sent as
  * `Authorization: Bearer <jwt>` on EVERY request (task 1). Supabase's
  * third-party auth resolves the token to `request.jwt.claims`, which the
  * `user_id()` helper and RLS policies rely on.
@@ -47,7 +47,7 @@ export interface SupabaseError {
   message: string;
 }
 
-/** Get the current Rork Auth JWT from secure storage. */
+/** Get the current Supabase Auth JWT from secure storage. */
 export async function getAccessToken(): Promise<string | null> {
   return secureStorage.getItem(ACCESS_TOKEN_KEY);
 }
@@ -161,7 +161,7 @@ export async function fetchProfile(
  * Task 2 — validation test: SELECT on `profiles` with the connected user's JWT.
  * Returns the raw rows, or the exact server error (status + code + message).
  * If `error.code` is 401/`invalid_jwt`/`no suitable key`, Supabase does not
- * (yet) accept Rork tokens.
+ * (yet) accept non-Supabase tokens.
  */
 export async function testProfilesConnection(
   userId: string
