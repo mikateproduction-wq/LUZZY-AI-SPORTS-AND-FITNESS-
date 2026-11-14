@@ -28,7 +28,6 @@ const LIMITS = {
 
 export interface UserFitnessProfileRow {
   user_id: string;
-  name: string | null;
   age: number | null;
   height_cm: number | null;
   weight_kg: number | null;
@@ -49,7 +48,6 @@ function fitnessProfileToRow(profile: UserProfile): UserFitnessProfileRow {
       : null;
   return {
     user_id: "",
-    name: profile.name ? sanitizeName(profile.name, LIMITS.name) : null,
     age: clampInt(profile.age, 0, 120),
     height_cm: clampInt(profile.height, 0, 300),
     weight_kg: clampInt(profile.weight, 0, 500),
@@ -68,7 +66,6 @@ function fitnessProfileToRow(profile: UserProfile): UserFitnessProfileRow {
 /** DB row → local UserProfile shape (missing fields stay undefined). */
 export function rowToUserProfile(row: UserFitnessProfileRow): Partial<UserProfile> {
   const out: Partial<UserProfile> = {};
-  if (row.name) out.name = row.name;
   if (typeof row.age === "number") out.age = row.age;
   if (typeof row.height_cm === "number") out.height = row.height_cm;
   if (typeof row.weight_kg === "number") out.weight = row.weight_kg;

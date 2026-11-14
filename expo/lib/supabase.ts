@@ -194,6 +194,53 @@ export async function createProfile(
   return { data: data?.[0] ?? null, error: null };
 }
 
+/** Champs modifiables par l'utilisateur. id, created_at et updated_at ne sont jamais envoyés. */
+export interface ProfilePatch {
+  first_name?: string;
+  last_name?: string;
+  pseudo?: string;
+  country_code?: string;
+}
+
+/**
+ * Met à jour le profil de l'utilisateur connecté. Seuls les champs présents dans
+ * `patch` sont envoyés (PATCH filtré sur id=eq.<userId>, la RLS restreint la ligne).
+ * Retourne error.code === '23505' en cas de pseudo déjà pris.
+ */
+export async function updateOwnProfile(
+  userId: string,
+  patch: ProfilePatch
+): Promise<{ data: ProfileRow | null; error: SupabaseError | null }> {
+  const body: ProfilePatch = {};
+  if (patch.first_name !== undefined) body.first_name = sanitizeName(patch.first_name, LIMITS.name);
+  if (patch.last_name !== undefined) body.last_name = sanitizeName(patch.last_name, LIMITS.name);
+  if (patch.pseudo !== undefined) body.pseudo = patch.pseudo.trim().toLowerCase();
+  if (patch.country_code !== undefined) body.country_code = patch.country_code.trim().toUpperCase();
+
+  if (Object.keys(body).length === 0) {
+    return { data: null, error: null };
+  }
+  if (
+    (body.first_name !== undefined && body.first_name.length === 0) ||
+    (body.last_name !== undefined && body.last_name.length === 0)
+  ) {
+    return { data: null, error: { status: 400, code: "INVALID_INPUT", message: "Nom ou prénom vide." } };
+  }
+
+  const { data, error } = await supabaseRequest<ProfileRow[]>("profiles", {
+    method: "PATCH",
+    query: `id=eq.${encodeURIComponent(userId)}&select=${PROFILE_COLUMNS}`,
+    prefer: "return=representation",
+    body,
+  });
+  if (error) return { data: null, error };
+  const row = data?.[0] ?? null;
+  if (!row) {
+    return { data: null, error: { status: 404, code: "NOT_FOUND", message: "Profil introuvable." } };
+  }
+  return { data: row, error: null };
+}
+
 /** Disponibilité d'un pseudo (fonction SQL, ne révèle aucun autre profil). */
 export async function checkPseudoAvailable(
   pseudo: string

@@ -14,6 +14,7 @@ import { Dumbbell, Timer, User, Flame, Clock, Trophy, ChevronRight } from 'lucid
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useActivity } from '@/contexts/ActivityContext';
 import { EXERCISES } from '@/data/exercises';
 import WeatherCard from '@/components/WeatherCard';
@@ -23,6 +24,7 @@ export default function HomeScreen() {
   const { theme, themeOpacity } = useTheme();
   const { t } = useLanguage();
   const { profile, rankInfo } = useProfile();
+  const { profile: accountProfile } = useAuth();
   const { today } = useActivity();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -35,7 +37,7 @@ export default function HomeScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
-  const displayName = profile?.name || t('home.defaultUser');
+  const displayName = accountProfile?.first_name || t('home.defaultUser');
   const greeting = `${t('home.greeting')} ${displayName}`;
 
   return (

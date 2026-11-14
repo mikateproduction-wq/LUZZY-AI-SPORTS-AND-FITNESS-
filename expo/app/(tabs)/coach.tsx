@@ -19,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
 
 import { useProfile } from "@/contexts/ProfileContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { logger } from "@/utils/logger";
@@ -103,6 +104,8 @@ async function getSafeImageBase64(asset: ImagePicker.ImagePickerAsset): Promise<
 export default function CoachScreen() {
   const { theme, themeOpacity } = useTheme();
   const { profile } = useProfile();
+  const { profile: accountProfile } = useAuth();
+  const firstName = accountProfile?.first_name ?? "";
   const { t, language, languageLabel } = useLanguage();
 
   const [input, setInput] = useState<string>("");
@@ -122,8 +125,8 @@ export default function CoachScreen() {
   const introText = useMemo(() => {
     const bits: string[] = [];
 
-    if (profile?.name) {
-      bits.push(t("coach.intro.named", { name: profile.name }));
+    if (firstName) {
+      bits.push(t("coach.intro.named", { name: firstName }));
     } else {
       bits.push(t("coach.intro.anon"));
     }
@@ -131,7 +134,7 @@ export default function CoachScreen() {
     bits.push(t("coach.intro.help"));
 
     return bits.join(" ");
-  }, [profile?.name, t]);
+  }, [firstName, t]);
 
   const expertSystemAddendum = useMemo(() => {
     const blocks: Record<string, string> = {

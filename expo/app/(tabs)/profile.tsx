@@ -14,17 +14,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { User as UserIcon, Save, Edit, Camera, Trophy, Shield, Star, Diamond } from 'lucide-react-native';
+import { User as UserIcon, Save, Edit, Camera, Trophy, Shield, Star, Diamond, LogOut, Trash2 } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
+import { BrandIcon } from '@/components/BrandIcon';
 import { useProfile } from '@/contexts/ProfileContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { ConfirmSignOutModal } from '@/components/ConfirmSignOutModal';
+import { DeleteAccountModal } from '@/components/DeleteAccountModal';
+import { getSessionEmail } from '@/lib/accountDeletion';
+import { getAvatarSignedUrl, mimeTypeFromUri, uploadAvatar, MAX_AVATAR_BYTES, type AvatarFailure } from '@/lib/avatar';
+import { OwnProfileSection } from '@/components/OwnProfileSection';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Gender, FitnessLevel, FitnessGoal, ActivityLevel, Rank } from '@/types/fitness';
 import { logger } from '@/utils/logger';
 import { clampInt, sanitizeName, sanitizeText } from '@/utils/validation';
-
-const MAX_PHOTO_SIZE_BYTES = 8 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 const RANK_COLORS: Record<Rank, { bg: string; accent: string; glow: string }> = {
   bronze: { bg: '#CD7F32', accent: '#8B5A2B', glow: '#CD7F3240' },
@@ -40,12 +45,65 @@ const RANK_ICONS: Record<Rank, React.ComponentType<{ color: string; size: number
   diamond: Diamond,
 };
 
+/** Textes de la zone compte. Français et anglais ; les autres langues suivent l'anglais. */
+const ACCOUNT_STRINGS = {
+  fr: {
+    accountTitle: 'Mon compte',
+    signOut: 'Se déconnecter',
+    signOutFailed: 'Déconnexion impossible. Réessayez.',
+    dangerTitle: 'Zone de danger',
+    dangerHint: 'La suppression de votre compte est définitive.',
+    deleteAccount: 'Supprimer mon compte',
+  },
+  en: {
+    accountTitle: 'My account',
+    signOut: 'Sign out',
+    signOutFailed: 'Sign out failed. Please retry.',
+    dangerTitle: 'Danger zone',
+    dangerHint: 'Deleting your account is permanent.',
+    deleteAccount: 'Delete my account',
+  },
+} as const;
+
+/** Textes de la photo de profil. Français et anglais ; les autres langues suivent l'anglais. */
+const AVATAR_STRINGS = {
+  fr: {
+    takePhoto: 'Prendre une photo',
+    pickGallery: 'Choisir depuis la galerie',
+    cancel: 'Annuler',
+    tooLarge: 'Image trop volumineuse (max 2 Mo).',
+    unsupported: 'Format non supporté. Utilisez JPG, PNG ou WEBP.',
+    invalidSignature: "Ce fichier n'est pas une image valide.",
+    typeMismatch: 'Le contenu du fichier ne correspond pas à son format.',
+    readFailed: "Lecture de l'image impossible. Réessayez.",
+    unauthorized: 'Session expirée. Reconnectez-vous.',
+    network: 'Pas de connexion internet. Réessayez.',
+    server: "Envoi de la photo impossible. Réessayez.",
+  },
+  en: {
+    takePhoto: 'Take a photo',
+    pickGallery: 'Choose from gallery',
+    cancel: 'Cancel',
+    tooLarge: 'Image too large (max 2 MB).',
+    unsupported: 'Unsupported format. Use JPG, PNG or WEBP.',
+    invalidSignature: 'This file is not a valid image.',
+    typeMismatch: 'The file content does not match its format.',
+    readFailed: 'Could not read the image. Please retry.',
+    unauthorized: 'Session expired. Please sign in again.',
+    network: 'No internet connection. Please retry.',
+    server: 'Could not upload the photo. Please retry.',
+  },
+} as const;
+
 export default function ProfileScreen() {
   const { theme, themeOpacity } = useTheme();
-  const { profile, updateProfile, xp, rankInfo } = useProfile();
-  const { t } = useLanguage();
+  const { profile, updateProfile, xp, rankInfo, clearAllLocalData } = useProfile();
+  const { t, language } = useLanguage();
+  const { signOut, profile: authProfile, user } = useAuth();
+  const router = useRouter();
+  const a = language === 'fr' ? ACCOUNT_STRINGS.fr : ACCOUNT_STRINGS.en;
+  const v = language === 'fr' ? AVATAR_STRINGS.fr : AVATAR_STRINGS.en;
   const [isEditing, setIsEditing] = useState(!profile);
-  const [name, setName] = useState(profile?.name || '');
   const [age, setAge] = useState(profile?.age?.toString() || '');
   const [height, setHeight] = useState(profile?.height?.toString() || '');
   const [weight, setWeight] = useState(profile?.weight?.toString() || '');
@@ -91,6 +149,61 @@ export default function ProfileScreen() {
     ).start();
   }, [rankGlowAnim]);
 
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signOutBusy, setSignOutBusy] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+
+  const openSignOut = () => {
+    setSignOutError(null);
+    setSignOutOpen(true);
+  };
+
+  const cancelSignOut = () => {
+    if (signOutBusy) return;
+    setSignOutError(null);
+    setSignOutOpen(false);
+  };
+
+  const confirmSignOut = async () => {
+    setSignOutBusy(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+      await clearAllLocalData();
+      setSignOutOpen(false);
+      router.replace('/auth');
+    } catch (err) {
+      logger.error('[Profile] sign-out failed', err);
+      setSignOutError(a.signOutFailed);
+    } finally {
+      setSignOutBusy(false);
+    }
+  };
+
+  const openDelete = async () => {
+    setSessionEmail(await getSessionEmail());
+    setDeleteOpen(true);
+  };
+
+  const finishAfterDeletion = async () => {
+    setDeleteOpen(false);
+    try {
+      await signOut();
+      await clearAllLocalData();
+    } catch (err) {
+      logger.error('[Profile] cleanup after account deletion failed', err);
+    }
+    router.replace('/auth');
+  };
+
+  const deleteExpected = {
+    firstName: authProfile?.first_name ?? '',
+    lastName: authProfile?.last_name ?? '',
+    email: sessionEmail,
+  };
+
   const rankColors = RANK_COLORS[rankInfo.rank];
   const RankIcon = RANK_ICONS[rankInfo.rank];
 
@@ -115,31 +228,78 @@ export default function ProfileScreen() {
   });
 
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const avatarRetried = useRef(false);
+  const userId = user?.id ?? null;
+  const avatarInitial = authProfile?.first_name?.trim().charAt(0).toUpperCase() ?? '';
+
+  /** Recharge l'URL signée (valable 60 minutes) de la photo depuis le stockage. */
+  const loadAvatar = useCallback(async () => {
+    if (!userId) {
+      setAvatarUrl(null);
+      return;
+    }
+    const result = await getAvatarSignedUrl(userId);
+    setAvatarUrl(result.ok ? result.url : null);
+  }, [userId]);
+
+  useEffect(() => {
+    void loadAvatar();
+  }, [loadAvatar]);
+
+  const avatarErrorText = useCallback(
+    (reason: AvatarFailure): string => {
+      switch (reason) {
+        case 'too_large':
+          return v.tooLarge;
+        case 'unsupported_type':
+          return v.unsupported;
+        case 'invalid_signature':
+          return v.invalidSignature;
+        case 'type_mismatch':
+          return v.typeMismatch;
+        case 'read_failed':
+          return v.readFailed;
+        case 'unauthorized':
+        case 'invalid_user':
+          return v.unauthorized;
+        case 'network':
+          return v.network;
+        default:
+          return v.server;
+      }
+    },
+    [v]
+  );
 
   const applyPickedPhoto = useCallback(
     async (asset: ImagePicker.ImagePickerAsset) => {
-      try {
-        if (asset.mimeType && !ALLOWED_MIME_TYPES.includes(asset.mimeType.toLowerCase())) {
-          Alert.alert(t('profile.permissionTitle'), 'Format non supporté. Utilisez JPG, PNG ou WEBP.');
-          return;
-        }
-        if (typeof asset.fileSize === 'number' && asset.fileSize > MAX_PHOTO_SIZE_BYTES) {
-          Alert.alert(t('profile.permissionTitle'), 'Image trop volumineuse (max 8 Mo).');
-          return;
-        }
+      if (!userId) {
+        Alert.alert(t('profile.permissionTitle'), v.unauthorized);
+        return;
+      }
+      if (typeof asset.fileSize === 'number' && asset.fileSize > MAX_AVATAR_BYTES) {
+        Alert.alert(t('profile.permissionTitle'), v.tooLarge);
+        return;
+      }
 
-        setIsSavingPhoto(true);
-        if (profile) {
-          await updateProfile({ ...profile, photoUri: asset.uri });
+      setIsSavingPhoto(true);
+      try {
+        const result = await uploadAvatar(userId, asset.uri, asset.mimeType ?? mimeTypeFromUri(asset.uri));
+        if (!result.ok) {
+          Alert.alert(t('profile.permissionTitle'), avatarErrorText(result.reason));
+          return;
         }
+        avatarRetried.current = false;
+        await loadAvatar();
       } catch (e) {
-        logger.error('[Profile] photo save error', e);
-        Alert.alert(t('profile.permissionTitle'), "Impossible d'enregistrer la photo. Réessayez.");
+        logger.error('[Profile] photo upload error', e);
+        Alert.alert(t('profile.permissionTitle'), v.server);
       } finally {
         setIsSavingPhoto(false);
       }
     },
-    [profile, t, updateProfile]
+    [avatarErrorText, loadAvatar, t, userId, v]
   );
 
   const pickImage = useCallback(async () => {
@@ -195,22 +355,17 @@ export default function ProfileScreen() {
       t('profile.title'),
       undefined,
       [
-        { text: 'Prendre une photo', onPress: () => void takePhoto() },
-        { text: 'Choisir depuis la galerie', onPress: () => void pickImage() },
-        { text: 'Annuler', style: 'cancel' },
+        { text: v.takePhoto, onPress: () => void takePhoto() },
+        { text: v.pickGallery, onPress: () => void pickImage() },
+        { text: v.cancel, style: 'cancel' },
       ]
     );
-  }, [pickImage, t, takePhoto]);
+  }, [pickImage, t, takePhoto, v]);
 
   const handleSave = () => {
     // Server-mirrored validation: bounds enforced again before persisting
     // (CWE-20) — the UI is never trusted as the only guard.
-    const safeName = sanitizeName(name);
     const safeRestrictions = sanitizeText(medicalRestrictions);
-    if (!safeName) {
-      Alert.alert('Error', t('profile.errorName'));
-      return;
-    }
     const safeAge = clampInt(age, 10, 100, NaN as unknown as number);
     if (Number.isNaN(safeAge)) {
       Alert.alert('Error', t('profile.errorAge'));
@@ -228,13 +383,11 @@ export default function ProfileScreen() {
     }
 
     void updateProfile({
-      name: safeName,
       age: safeAge,
       height: safeHeight,
       weight: safeWeight,
       gender,
       fitnessLevel,
-      photoUri: profile?.photoUri,
       fitnessGoal,
       activityLevel,
       medicalRestrictions: safeRestrictions || undefined,
@@ -310,8 +463,19 @@ export default function ProfileScreen() {
           <View style={[styles.avatarContainer, { backgroundColor: theme.colors.primary }]}>
             {isSavingPhoto ? (
               <ActivityIndicator color="#FFFFFF" />
-            ) : profile?.photoUri ? (
-              <Image source={{ uri: profile.photoUri }} style={styles.avatarImage} />
+            ) : avatarUrl ? (
+              <Image
+                source={{ uri: avatarUrl }}
+                style={styles.avatarImage}
+                onError={() => {
+                  if (!avatarRetried.current) {
+                    avatarRetried.current = true;
+                    void loadAvatar();
+                  }
+                }}
+              />
+            ) : avatarInitial ? (
+              <Text style={styles.avatarInitial}>{avatarInitial}</Text>
             ) : (
               <UserIcon color="#FFFFFF" size={48} />
             )}
@@ -320,6 +484,8 @@ export default function ProfileScreen() {
             <Camera color="#FFFFFF" size={18} />
           </View>
         </TouchableOpacity>
+
+        <OwnProfileSection />
 
         <View style={[styles.rankCard, { backgroundColor: theme.colors.surface }]}>
           <Animated.View
@@ -409,25 +575,6 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.form}>
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: theme.colors.text }]}>{t('profile.name')}</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: theme.colors.surface,
-                  color: theme.colors.text,
-                  borderColor: theme.colors.border,
-                },
-              ]}
-              value={name}
-              onChangeText={setName}
-              placeholder={t('profile.namePlaceholder')}
-              placeholderTextColor={theme.colors.textSecondary}
-              editable={isEditing}
-            />
-          </View>
-
           <View style={styles.row}>
             <View style={[styles.field, styles.halfField]}>
               <Text style={[styles.label, { color: theme.colors.text }]}>{t('profile.age')}</Text>
@@ -651,7 +798,7 @@ export default function ProfileScreen() {
               onPress={() => Linking.openURL('https://x.com/mikatproduction')}
               activeOpacity={0.8}
             >
-              <Text style={styles.socialXIcon}>𝕏</Text>
+              <BrandIcon name="x" size={18} color="#FFFFFF" />
               <Text style={styles.socialButtonText}>@mikatproduction</Text>
             </TouchableOpacity>
 
@@ -660,7 +807,7 @@ export default function ProfileScreen() {
               onPress={() => Linking.openURL('https://web.facebook.com/profile.php?id=61588056604314')}
               activeOpacity={0.8}
             >
-              <Text style={styles.socialFbIcon}>f</Text>
+              <BrandIcon name="facebook" size={20} color="#FFFFFF" />
               <Text style={styles.socialButtonText}>{t('social.facebook')}</Text>
             </TouchableOpacity>
 
@@ -669,12 +816,52 @@ export default function ProfileScreen() {
               onPress={() => Linking.openURL('https://www.instagram.com/mikateproduction01/')}
               activeOpacity={0.8}
             >
-              <Text style={styles.socialIgIcon}>◎</Text>
+              <BrandIcon name="instagram" size={20} color="#FFFFFF" />
               <Text style={styles.socialButtonText}>@mikateproduction01</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        <View style={[styles.accountCard, { backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles.socialTitle, { color: theme.colors.textSecondary }]}>{a.accountTitle}</Text>
+          <TouchableOpacity
+            style={[styles.signOutButton, { borderColor: theme.colors.border, backgroundColor: theme.colors.background }]}
+            onPress={openSignOut}
+            activeOpacity={0.7}
+          >
+            <LogOut color={theme.colors.text} size={18} />
+            <Text style={[styles.signOutButtonText, { color: theme.colors.text }]}>{a.signOut}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.dangerCard, { borderColor: theme.colors.error, backgroundColor: theme.colors.surface }]}>
+          <Text style={[styles.dangerTitle, { color: theme.colors.error }]}>{a.dangerTitle}</Text>
+          <Text style={[styles.dangerHint, { color: theme.colors.textSecondary }]}>{a.dangerHint}</Text>
+          <TouchableOpacity
+            style={[styles.deleteButton, { backgroundColor: theme.colors.error }]}
+            onPress={() => void openDelete()}
+            activeOpacity={0.8}
+          >
+            <Trash2 color="#FFFFFF" size={18} />
+            <Text style={styles.deleteButtonText}>{a.deleteAccount}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
+
+      <ConfirmSignOutModal
+        visible={signOutOpen}
+        busy={signOutBusy}
+        errorMessage={signOutError}
+        onCancel={cancelSignOut}
+        onConfirm={() => void confirmSignOut()}
+      />
+
+      <DeleteAccountModal
+        visible={deleteOpen}
+        expected={deleteExpected}
+        onClose={() => setDeleteOpen(false)}
+        onFinished={() => void finishAfterDeletion()}
+      />
       </SafeAreaView>
     </Animated.View>
   );
@@ -735,6 +922,11 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: '100%',
     height: '100%',
+  },
+  avatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 44,
+    fontWeight: '700',
   },
   cameraIconContainer: {
     position: 'absolute' as const,
@@ -934,31 +1126,60 @@ const styles = StyleSheet.create({
   socialInstagram: {
     backgroundColor: '#E1306C',
   },
-  socialXIcon: {
-    fontSize: 18,
-    fontWeight: '800' as const,
-    color: '#FFFFFF',
-    width: 24,
-    textAlign: 'center' as const,
-  },
-  socialFbIcon: {
-    fontSize: 20,
-    fontWeight: '900' as const,
-    color: '#FFFFFF',
-    width: 24,
-    textAlign: 'center' as const,
-    fontStyle: 'italic' as const,
-  },
-  socialIgIcon: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    width: 24,
-    textAlign: 'center' as const,
-  },
   socialButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600' as const,
     flex: 1,
+  },
+  accountCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 24,
+    gap: 14,
+  },
+  signOutButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  signOutButtonText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+  },
+  dangerCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+    marginTop: 24,
+    gap: 10,
+  },
+  dangerTitle: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
+  },
+  dangerHint: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  deleteButton: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 10,
+    marginTop: 4,
+  },
+  deleteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700' as const,
   },
 });

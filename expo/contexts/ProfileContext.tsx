@@ -155,7 +155,7 @@ export const [ProfileProvider, useProfile] = createContextHook(() => {
         const savedProfile = await secureStorage.getItem(PROFILE_STORAGE_KEY);
         if (!savedProfile) {
           const mapped = rowToUserProfile(remoteProfile.data);
-          setProfile((prev) => ({ ...mapped, name: mapped.name ?? prev?.name ?? '' }) as UserProfile);
+          setProfile(mapped as UserProfile);
         }
       }
     } catch (error) {

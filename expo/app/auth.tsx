@@ -1,34 +1,61 @@
-import React, { useEffect } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
-  Dimensions,
   Platform,
-} from "react-native";
-import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAuth } from "@/contexts/AuthContext";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { DEFAULT_THEME } from "@/constants/themes";
-import { logger } from "@/utils/logger";
+import { AuthBackground } from '@/components/AuthBackground';
+import { BrandIcon } from '@/components/BrandIcon';
+import { LANGUAGES, t, type Key, type LanguageCode } from '@/constants/i18n';
+import { useAuth } from '@/contexts/AuthContext';
+import { LANGUAGE_STORAGE_KEY } from '@/contexts/LanguageContext';
+import { logger } from '@/utils/logger';
 
-const { width } = Dimensions.get("window");
+/** Langue de l'écran de connexion tant que l'utilisateur n'a pas choisi de langue. */
+const AUTH_FALLBACK_LANGUAGE: LanguageCode = 'en';
+
+const SPINNER_COLOR = '#FFFFFF';
+const GOOGLE_SPINNER_COLOR = '#3C4043';
 
 export default function AuthScreen() {
   const { user, profile, isLoading, isSigningIn, error, signIn, clearError } = useAuth();
-  const { t } = useLanguage();
   const router = useRouter();
-  const theme = DEFAULT_THEME;
+  const insets = useSafeAreaInsets();
+
+  const [chosenLanguage, setChosenLanguage] = useState<LanguageCode | null>(null);
+  const [languageReady, setLanguageReady] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
+        if (!cancelled && saved && LANGUAGES.some((l) => l.code === saved)) {
+          setChosenLanguage(saved as LanguageCode);
+        }
+      } catch (err) {
+        logger.error('[Auth] language read failed', err);
+      } finally {
+        if (!cancelled) setLanguageReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
-      router.replace(profile ? "/(tabs)" : "/onboarding");
+      router.replace(profile ? '/(tabs)' : '/onboarding');
     }
   }, [user, profile, router]);
 
@@ -39,143 +66,114 @@ export default function AuthScreen() {
     }
   }, [error, clearError]);
 
-  const handleSignIn = async (provider: "google") => {
+  const language: LanguageCode = chosenLanguage ?? AUTH_FALLBACK_LANGUAGE;
+  const tr = (key: Key) => t(key, language);
+
+  const handleSignIn = async () => {
     try {
-      if (Platform.OS !== "web") {
+      if (Platform.OS !== 'web') {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch {
       // haptics not available
     }
-    await signIn(provider);
+    await signIn('google');
   };
 
-  if (isLoading) {
+  if (isLoading || !languageReady) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </View>
+      <AuthBackground>
+        <View style={styles.loading}>
+          <ActivityIndicator size="large" color={SPINNER_COLOR} />
+        </View>
+      </AuthBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={[theme.colors.primary, theme.colors.primaryDark]}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+    <AuthBackground>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
       >
-        {/* Hero section */}
-        <View style={styles.heroSection}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoEmoji}>💪</Text>
-          </View>
-          <Text style={styles.appName}>LUZZY AI</Text>
-          <Text style={styles.appTagline}>{t("auth.tagline")}</Text>
+        <View style={styles.hero}>
+          <Text style={styles.appName} accessibilityRole="header">
+            LUZZY AI
+          </Text>
+          <Text style={styles.appTagline}>{tr('auth.tagline')}</Text>
         </View>
 
-        {/* Sign-in section */}
         <View style={styles.signInSection}>
-          <Text style={styles.signInTitle}>{t("auth.signInTitle")}</Text>
-          <Text style={styles.signInSubtitle}>{t("auth.signInSubtitle")}</Text>
+          <Text style={styles.signInTitle} accessibilityRole="header">
+            {tr('auth.signInTitle')}
+          </Text>
+          <Text style={styles.signInSubtitle}>{tr('auth.signInSubtitle')}</Text>
 
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
+          {error ? (
+            <View style={styles.errorContainer} accessibilityRole="alert">
+              <Text style={styles.errorText}>{tr('auth.errorGeneric')}</Text>
             </View>
-          )}
+          ) : null}
 
-          {/* Google button */}
           <TouchableOpacity
-            style={[styles.oauthButton, styles.googleButton]}
-            onPress={() => handleSignIn("google")}
+            style={styles.googleButton}
+            onPress={handleSignIn}
             disabled={isSigningIn}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={tr('auth.signInGoogle')}
+            accessibilityState={{ disabled: isSigningIn, busy: isSigningIn }}
           >
             {isSigningIn ? (
-              <ActivityIndicator color="#3C4043" size="small" />
+              <ActivityIndicator color={GOOGLE_SPINNER_COLOR} size="small" />
             ) : (
-              <>
-                <GoogleIcon />
-                <Text style={styles.googleButtonText}>
-                  {t("auth.signInGoogle")}
-                </Text>
-              </>
+              <BrandIcon name="google" size={22} />
             )}
-          </TouchableOpacity>
-
-          {/* Skip / Continue as guest */}
-          <TouchableOpacity
-            style={styles.guestButton}
-            onPress={() => router.replace("/(tabs)")}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.guestButtonText}>
-              {t("auth.continueAsGuest")}
-            </Text>
+            <Text style={styles.googleButtonText}>{tr('auth.signInGoogle')}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Footer */}
-        <Text style={styles.footerText}>
-          {t("auth.termsPrefix")}{" "}
-          <Text style={styles.footerLink}>{t("auth.terms")}</Text> {"•"}{" "}
-          <Text style={styles.footerLink}>{t("auth.privacy")}</Text>
-        </Text>
-      </LinearGradient>
-    </SafeAreaView>
-  );
-}
-
-/** Inline Google "G" icon (multi-colour SVG via shapes). */
-function GoogleIcon() {
-  return (
-    <View style={styles.iconWrap}>
-      <Text style={styles.googleG}>G</Text>
-    </View>
+        <Text style={styles.legalText}>{tr('auth.legalNotice')}</Text>
+      </ScrollView>
+    </AuthBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  loading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
-    justifyContent: "space-between",
-    paddingHorizontal: 28,
-    paddingTop: 60,
-    paddingBottom: 40,
+  content: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    gap: 32,
   },
-  heroSection: {
-    alignItems: "center",
+  hero: {
+    alignItems: 'center',
     gap: 12,
-  },
-  logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  logoEmoji: {
-    fontSize: 40,
   },
   appName: {
     fontSize: 32,
-    fontWeight: "800" as const,
-    color: "#FFFFFF",
+    fontWeight: '800',
+    color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   appTagline: {
     fontSize: 15,
-    color: "rgba(255,255,255,0.85)",
-    textAlign: "center" as const,
-    maxWidth: 260,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    maxWidth: 280,
     lineHeight: 22,
   },
   signInSection: {
@@ -183,78 +181,50 @@ const styles = StyleSheet.create({
   },
   signInTitle: {
     fontSize: 24,
-    fontWeight: "700" as const,
-    color: "#FFFFFF",
-    textAlign: "center" as const,
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   signInSubtitle: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.75)",
-    textAlign: "center" as const,
+    color: 'rgba(255,255,255,0.75)',
+    textAlign: 'center',
     marginBottom: 8,
   },
   errorContainer: {
-    backgroundColor: "rgba(220,53,69,0.15)",
+    backgroundColor: 'rgba(220,53,69,0.15)',
     borderWidth: 1,
-    borderColor: "rgba(220,53,69,0.4)",
+    borderColor: 'rgba(220,53,69,0.4)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginBottom: 4,
   },
   errorText: {
-    color: "#FFE0E0",
+    color: '#FFE0E0',
     fontSize: 13,
-    textAlign: "center" as const,
-    fontWeight: "500" as const,
-  },
-  oauthButton: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    gap: 12,
-    paddingVertical: 16,
-    borderRadius: 14,
-    minHeight: 54,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   googleButton: {
-    backgroundColor: "#FFFFFF",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    minHeight: 54,
+    backgroundColor: '#FFFFFF',
   },
   googleButtonText: {
-    color: "#3C4043",
+    color: '#3C4043',
     fontSize: 16,
-    fontWeight: "600" as const,
+    fontWeight: '600',
   },
-  iconWrap: {
-    width: 24,
-    height: 24,
-    justifyContent: "center" as const,
-    alignItems: "center" as const,
-  },
-  googleG: {
-    fontSize: 20,
-    fontWeight: "800" as const,
-    color: "#4285F4",
-  },
-  guestButton: {
-    paddingVertical: 14,
-    alignItems: "center" as const,
-    marginTop: 4,
-  },
-  guestButtonText: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 14,
-    fontWeight: "500" as const,
-  },
-  footerText: {
+  legalText: {
     fontSize: 12,
-    color: "rgba(255,255,255,0.55)",
-    textAlign: "center" as const,
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
     lineHeight: 18,
-  },
-  footerLink: {
-    fontWeight: "600" as const,
-    textDecorationLine: "underline" as const,
   },
 });

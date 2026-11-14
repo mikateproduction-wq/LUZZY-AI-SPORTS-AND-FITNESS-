@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Palette, Check, Languages, Mail, Bell, Clock, ChevronDown, ChevronUp, LogOut, UserCircle } from 'lucide-react-native';
+import { BrandIcon } from '@/components/BrandIcon';
 
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -488,7 +489,7 @@ export default function SettingsScreen() {
               onPress={() => void handleSocialPress('https://x.com/mikatproduction')}
               activeOpacity={0.8}
             >
-              <Text style={styles.socialBtnIcon}>𝕏</Text>
+              <BrandIcon name="x" size={18} color="#FFFFFF" />
               <Text style={styles.socialBtnText}>@mikatproduction</Text>
             </TouchableOpacity>
 
@@ -497,7 +498,7 @@ export default function SettingsScreen() {
               onPress={() => void handleSocialPress('https://web.facebook.com/profile.php?id=61588056604314')}
               activeOpacity={0.8}
             >
-              <Text style={styles.socialBtnIcon}>f</Text>
+              <BrandIcon name="facebook" size={20} color="#FFFFFF" />
               <Text style={styles.socialBtnText}>{t('social.facebook')}</Text>
             </TouchableOpacity>
 
@@ -506,12 +507,7 @@ export default function SettingsScreen() {
               onPress={() => void handleSocialPress('https://www.instagram.com/mikateproduction01/')}
               activeOpacity={0.8}
             >
-              <View style={styles.igIconWrap}>
-                <View style={styles.igIconOuter}>
-                  <View style={styles.igIconInner} />
-                  <View style={styles.igIconDot} />
-                </View>
-              </View>
+              <BrandIcon name="instagram" size={20} color="#FFFFFF" />
               <Text style={styles.socialBtnText}>@mikateproduction01</Text>
             </TouchableOpacity>
           </View>
@@ -793,13 +789,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
   },
-  socialBtnIcon: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '900' as const,
-    width: 24,
-    textAlign: 'center' as const,
-  },
   socialBtnText: {
     color: '#FFFFFF',
     fontSize: 14,
@@ -807,36 +796,5 @@ const styles = StyleSheet.create({
   },
   instagramBtn: {
     backgroundColor: '#E1306C',
-  },
-  igIconWrap: {
-    width: 24,
-    height: 24,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  igIconOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  igIconInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-  },
-  igIconDot: {
-    position: 'absolute' as const,
-    top: 3,
-    right: 3,
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: '#FFFFFF',
   },
 });

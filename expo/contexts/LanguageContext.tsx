@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_LANGUAGE, LanguageCode, LANGUAGES, t } from '@/constants/i18n';
 import { logger } from '@/utils/logger';
 
-const LANGUAGE_STORAGE_KEY = '@fitness_language';
+export const LANGUAGE_STORAGE_KEY = '@fitness_language';
 
 export const [LanguageProvider, useLanguage] = createContextHook(() => {
   const [language, setLanguage] = useState<LanguageCode>(DEFAULT_LANGUAGE);

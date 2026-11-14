@@ -25,7 +25,6 @@ export type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active'
 export type DietaryPreference = 'none' | 'vegetarian' | 'vegan' | 'pescatarian' | 'keto' | 'paleo' | 'halal' | 'kosher';
 
 export interface UserProfile {
-  name: string;
   age: number;
   height: number;
   weight: number;
