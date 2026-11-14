@@ -27,21 +27,21 @@ interface StartupRouteControllerProps {
 }
 
 function StartupRouteController({ enabled, onReady }: StartupRouteControllerProps) {
-  const { user, isLoading } = useAuth();
+  const { user, profile, isLoading } = useAuth();
   const hasRoutedRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!enabled || isLoading || hasRoutedRef.current) return;
 
     hasRoutedRef.current = true;
-    router.replace(user ? "/(tabs)" : "/auth");
+    router.replace(!user ? "/auth" : profile ? "/(tabs)" : "/onboarding");
 
     const frame = requestAnimationFrame(() => {
       requestAnimationFrame(onReady);
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [enabled, isLoading, onReady, user]);
+  }, [enabled, isLoading, onReady, user, profile]);
 
   return null;
 }
@@ -51,6 +51,8 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="auth" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+      <Stack.Screen name="leaderboard" options={{ headerShown: false }} />
       <Stack.Screen name="exercise/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="+not-found" />
     </Stack>

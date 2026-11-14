@@ -21,16 +21,16 @@ import { logger } from "@/utils/logger";
 const { width } = Dimensions.get("window");
 
 export default function AuthScreen() {
-  const { user, isLoading, isSigningIn, error, signIn, clearError } = useAuth();
+  const { user, profile, isLoading, isSigningIn, error, signIn, clearError } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
   const theme = DEFAULT_THEME;
 
   useEffect(() => {
     if (user) {
-      router.replace("/(tabs)");
+      router.replace(profile ? "/(tabs)" : "/onboarding");
     }
-  }, [user, router]);
+  }, [user, profile, router]);
 
   useEffect(() => {
     if (error) {
