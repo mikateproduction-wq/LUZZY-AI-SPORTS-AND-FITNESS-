@@ -350,7 +350,7 @@ export default function ExerciseDetailScreen() {
                 Démonstration du mouvement
               </Text>
               <View style={styles.diagramContainer}>
-                <Exercise3DAnimation exerciseName={exercise.name} category={exercise.category} />
+                <Exercise3DAnimation exerciseId={exercise.id} exerciseName={exercise.name} category={exercise.category} />
               </View>
             </View>
 

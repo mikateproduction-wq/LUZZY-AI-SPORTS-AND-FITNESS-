@@ -16,6 +16,7 @@ import type { ExerciseCategory } from '@/types/fitness';
 
 interface Exercise3DAnimationProps {
   /** English source name of the exercise (used for clip mapping). */
+  exerciseId: string;
   exerciseName: string;
   category: ExerciseCategory;
   height?: number;
@@ -272,6 +273,7 @@ init().catch(function (e) { fail(e && e.message ? e.message : e); });
  * legacy 2D diagram when the 3D assets are unavailable or fail to load.
  */
 export default function Exercise3DAnimation({
+  exerciseId,
   exerciseName,
   category,
   height = 320,
@@ -314,7 +316,7 @@ export default function Exercise3DAnimation({
   if (!ready || failed) {
     return (
       <View style={styles.fallbackContainer}>
-        <ExerciseDiagram exerciseType={exerciseName} size={180} />
+        <ExerciseDiagram exerciseId={exerciseId} size={180} />
       </View>
     );
   }
