@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { LineChart, BarChart, PieChart as RNPieChart } from 'react-native-chart-kit';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Platform, TextInput, ActivityIndicator, Share, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform, TextInput, ActivityIndicator, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Activity, Flame, BarChart3, TrendingUp, PieChart, Footprints, ArrowRightLeft, Share2 } from 'lucide-react-native';
 
@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useActivity } from '@/contexts/ActivityContext';
 import { ActivityDayStats } from '@/types/fitness';
 import { logger } from '@/utils/logger';
+import { useResponsive } from '@/hooks/useResponsive';
 
 type Range = 'today' | 'week' | 'month';
 
@@ -35,6 +36,8 @@ function sumStats(items: ActivityDayStats[]) {
   );
 }
 
+const CHART_SIDE_MARGIN = 60;
+
 export default function ActivityScreen() {
   const { theme, themeOpacity } = useTheme();
   const { t } = useLanguage();
@@ -54,7 +57,8 @@ export default function ActivityScreen() {
 
   const stepProgressAnim = useRef(new Animated.Value(0)).current;
 
-  const screenWidth = Dimensions.get('window').width;
+  const layout = useResponsive();
+  const chartWidth = Math.min(layout.width, layout.contentMaxWidth ?? layout.width) - CHART_SIDE_MARGIN;
 
   const totalSteps = pastStepCount + liveStepCount;
   const DAILY_STEP_GOAL = 10000;
@@ -484,7 +488,7 @@ export default function ActivityScreen() {
               {chartType === 'bar' && (
                 <BarChart
                   data={chartData}
-                  width={screenWidth - 60}
+                  width={chartWidth}
                   height={220}
                   chartConfig={chartConfig}
                   style={styles.chart}
@@ -497,7 +501,7 @@ export default function ActivityScreen() {
               {chartType === 'line' && (
                 <LineChart
                   data={chartData}
-                  width={screenWidth - 60}
+                  width={chartWidth}
                   height={220}
                   chartConfig={chartConfig}
                   style={styles.chart}
@@ -509,7 +513,7 @@ export default function ActivityScreen() {
               {chartType === 'pie' && (
                 <RNPieChart
                   data={pieData}
-                  width={screenWidth - 60}
+                  width={chartWidth}
                   height={220}
                   chartConfig={chartConfig}
                   accessor="value"

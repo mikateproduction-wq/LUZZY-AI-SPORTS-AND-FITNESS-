@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
   Image,
   Animated,
 } from 'react-native';
@@ -30,13 +29,18 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getExerciseTranslation } from '@/data/exerciseTranslations';
 import Exercise3DAnimation from '@/components/Exercise3DAnimation';
 import { logger } from '@/utils/logger';
+import { useResponsive } from '@/hooks/useResponsive';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const HERO_ASPECT_RATIO = 0.65;
+const HERO_MAX_HEIGHT = 480;
 
 type TimerState = 'idle' | 'running' | 'paused' | 'done';
 
 export default function ExerciseDetailScreen() {
   const { theme, themeOpacity } = useTheme();
+  const layout = useResponsive();
+  const frameWidth = layout.contentMaxWidth ? Math.min(layout.width, layout.contentMaxWidth) : layout.width;
+  const heroHeight = Math.min(frameWidth * HERO_ASPECT_RATIO, HERO_MAX_HEIGHT);
   const { addExerciseSession } = useActivity();
   const { addXp } = useProfile();
   const { language, t } = useLanguage();
@@ -187,7 +191,7 @@ export default function ExerciseDetailScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.imageContainer}>
+          <View style={[styles.imageContainer, { width: frameWidth, height: heroHeight }]}>
             <Image
               source={{ uri: exercise.imageUrl }}
               style={styles.exerciseImage}
@@ -437,8 +441,6 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   content: { paddingBottom: 40 },
   imageContainer: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_WIDTH * 0.65,
     position: 'relative',
   },
   exerciseImage: { width: '100%', height: '100%' },

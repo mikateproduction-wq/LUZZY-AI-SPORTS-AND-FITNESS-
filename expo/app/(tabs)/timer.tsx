@@ -14,13 +14,31 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useActivity } from '@/contexts/ActivityContext';
 import { logger } from '@/utils/logger';
 import { formatClock, minutesToFlush, remainingMs } from '@/lib/timer';
+import { useResponsive } from '@/hooks/useResponsive';
+import { clamp } from '@/lib/responsive';
 
 type Mode = 'stopwatch' | 'timer';
 
 const TICK_MS = 50;
 
+const TIMER_DISPLAY_HORIZONTAL_PADDING = 20;
+const TIMER_CIRCLE_BASE_SIZE = 280;
+
 export default function TimerScreen() {
   const { theme, themeOpacity } = useTheme();
+  const layout = useResponsive();
+  const circleMax = layout.breakpoint === 'compact' ? TIMER_CIRCLE_BASE_SIZE : 360;
+  const circleSize = Math.round(
+    Math.max(
+      180,
+      Math.min(
+        circleMax,
+        layout.width - TIMER_DISPLAY_HORIZONTAL_PADDING * 2,
+        layout.height * 0.45,
+      ),
+    ),
+  );
+  const timerFontSize = Math.round(48 * clamp(circleSize / TIMER_CIRCLE_BASE_SIZE, 0.65, 1.25) * 2) / 2;
   const { t } = useLanguage();
   const { addExerciseMinutes } = useActivity();
   const [mode, setMode] = useState<Mode>('stopwatch');
@@ -252,12 +270,15 @@ export default function TimerScreen() {
           style={[
             styles.timerCircle,
             {
+              width: circleSize,
+              height: circleSize,
+              borderRadius: circleSize / 2,
               backgroundColor: theme.colors.surface,
               transform: [{ scale: pulseAnim }],
             },
           ]}
         >
-          <Text style={[styles.timerText, { color: theme.colors.text }]}>
+          <Text style={[styles.timerText, { fontSize: timerFontSize, color: theme.colors.text }]}>
             {formatClock(displayMs)}
           </Text>
           <Text style={[styles.timerLabel, { color: theme.colors.textSecondary }]}>
@@ -351,9 +372,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   timerCircle: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
     justifyContent: 'center',
     alignItems: 'center',
   },

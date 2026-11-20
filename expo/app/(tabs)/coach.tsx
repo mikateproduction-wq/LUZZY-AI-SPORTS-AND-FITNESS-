@@ -674,6 +674,7 @@ const styles = StyleSheet.create({
   },
   bubbleImage: {
     width: 180,
+    maxWidth: "100%",
     height: 120,
     borderRadius: 10,
     marginBottom: 8,

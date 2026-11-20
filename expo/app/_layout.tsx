@@ -12,6 +12,7 @@ import { ActivityProvider } from "@/contexts/ActivityContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import IntroVideoOverlay from "@/components/IntroVideoOverlay";
+import { ResponsiveFrame } from "@/components/ResponsiveFrame";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { logger } from "@/utils/logger";
 
@@ -48,14 +49,16 @@ function StartupRouteController({ enabled, onReady }: StartupRouteControllerProp
 
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="auth" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
-      <Stack.Screen name="leaderboard" options={{ headerShown: false }} />
-      <Stack.Screen name="exercise/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="+not-found" />
-    </Stack>
+    <ResponsiveFrame>
+      <Stack screenOptions={{ headerBackTitle: "Back" }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="auth" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false }} />
+        <Stack.Screen name="leaderboard" options={{ headerShown: false }} />
+        <Stack.Screen name="exercise/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+    </ResponsiveFrame>
   );
 }
 

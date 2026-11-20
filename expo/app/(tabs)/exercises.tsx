@@ -25,6 +25,11 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { getExerciseTranslation } from '@/data/exerciseTranslations';
 import { Exercise, ExerciseCategory, FitnessLevel } from '@/types/fitness';
 import { SPORTS, SPORT_NAMES } from '@/constants/sports';
+import { useResponsive } from '@/hooks/useResponsive';
+import { getGridItemWidth } from '@/lib/responsive';
+
+const SPORT_GRID_GAP = 10;
+const SCREEN_HORIZONTAL_PADDING = 16;
 
 function getDailyChallenges(catalog: Exercise[]) {
   const now = new Date();
@@ -55,6 +60,15 @@ const CATEGORIES: { id: ExerciseCategory | 'all'; name: string; icon: typeof Tar
 
 export default function ExercisesScreen() {
   const { theme, themeOpacity } = useTheme();
+  const layout = useResponsive();
+  const sportColumns = layout.columns;
+  const sheetWidth = layout.contentMaxWidth ? Math.min(layout.width, layout.contentMaxWidth) : layout.width;
+  const sportCardWidth = getGridItemWidth(
+    sheetWidth - SCREEN_HORIZONTAL_PADDING * 2,
+    sportColumns,
+    SPORT_GRID_GAP,
+  );
+  const challengeCardWidth = layout.breakpoint === 'compact' ? 138 : 168;
   const { language, t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | 'all'>('all');
   const [selectedLevel, setSelectedLevel] = useState<FitnessLevel | 'all'>('all');
@@ -170,7 +184,16 @@ export default function ExercisesScreen() {
 
         <Modal visible={showSportPicker} animationType="slide" transparent onRequestClose={() => setShowSportPicker(false)}>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.colors.background }]}> 
+            <View
+              style={[
+                styles.modalContent,
+                {
+                  width: sheetWidth,
+                  alignSelf: 'center',
+                  backgroundColor: theme.colors.background,
+                },
+              ]}
+            > 
               <View style={styles.modalHandle} />
               <View style={styles.modalHeader}>
                 <View>
@@ -182,9 +205,10 @@ export default function ExercisesScreen() {
                 </TouchableOpacity>
               </View>
               <FlatList
+                key={`cols-${sportColumns}`}
                 data={SPORTS}
                 keyExtractor={(item) => item.id}
-                numColumns={2}
+                numColumns={sportColumns}
                 contentContainerStyle={styles.sportGrid}
                 columnWrapperStyle={styles.sportGridRow}
                 showsVerticalScrollIndicator={false}
@@ -195,6 +219,7 @@ export default function ExercisesScreen() {
                       style={[
                         styles.sportCard,
                         {
+                          width: sportCardWidth,
                           backgroundColor: isActive ? theme.colors.primary + '15' : theme.colors.surface,
                           borderColor: isActive ? theme.colors.primary : theme.colors.border,
                         },
@@ -234,7 +259,7 @@ export default function ExercisesScreen() {
               return (
                 <TouchableOpacity
                   key={ch.id}
-                  style={[styles.challengeCard, { backgroundColor: theme.colors.surface, borderColor: '#F59E0B30' }]}
+                  style={[styles.challengeCard, { width: challengeCardWidth, backgroundColor: theme.colors.surface, borderColor: '#F59E0B30' }]}
                   onPress={() => router.push(`/exercise/${ch.id}` as any)}
                   activeOpacity={0.86}
                   testID={`challenge.${ch.id}`}
@@ -492,7 +517,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sportGrid: {
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_HORIZONTAL_PADDING,
     paddingBottom: 20,
   },
   sportGridRow: {
@@ -500,7 +525,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   sportCard: {
-    width: '48%' as const,
     padding: 16,
     borderRadius: 18,
     borderWidth: 1,
@@ -550,7 +574,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   challengeCard: {
-    width: 138,
     borderRadius: 16,
     overflow: 'hidden' as const,
     borderWidth: 1,

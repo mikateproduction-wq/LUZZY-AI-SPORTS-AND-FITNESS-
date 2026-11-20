@@ -18,6 +18,8 @@ import { BrandIcon } from '@/components/BrandIcon';
 import { LANGUAGES, t, type Key, type LanguageCode } from '@/constants/i18n';
 import { useAuth } from '@/contexts/AuthContext';
 import { LANGUAGE_STORAGE_KEY } from '@/contexts/LanguageContext';
+import { useResponsive } from '@/hooks/useResponsive';
+import { scaleFont } from '@/lib/responsive';
 import { logger } from '@/utils/logger';
 
 /** Langue de l'écran de connexion tant que l'utilisateur n'a pas choisi de langue. */
@@ -30,6 +32,9 @@ export default function AuthScreen() {
   const { user, profile, isLoading, isSigningIn, error, signIn, clearError } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const layout = useResponsive();
+  const isCompactPhone = layout.phoneClass === 'xs';
+  const columnStyle = layout.breakpoint === 'compact' ? null : styles.centeredColumn;
 
   const [chosenLanguage, setChosenLanguage] = useState<LanguageCode | null>(null);
   const [languageReady, setLanguageReady] = useState<boolean>(false);
@@ -96,23 +101,38 @@ export default function AuthScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 24 },
+          {
+            paddingHorizontal: layout.horizontalPadding,
+            paddingTop: insets.top + (isCompactPhone ? 24 : 48),
+            paddingBottom: insets.bottom + 24,
+            gap: isCompactPhone ? 20 : 32,
+          },
         ]}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <View style={styles.hero}>
-          <Text style={styles.appName} accessibilityRole="header">
+        <View style={[styles.hero, columnStyle]}>
+          <Text
+            style={[styles.appName, { fontSize: scaleFont(32, layout) }]}
+            accessibilityRole="header"
+          >
             LUZZY AI
           </Text>
-          <Text style={styles.appTagline}>{tr('auth.tagline')}</Text>
+          <Text style={[styles.appTagline, { fontSize: scaleFont(15, layout) }]}>
+            {tr('auth.tagline')}
+          </Text>
         </View>
 
-        <View style={styles.signInSection}>
-          <Text style={styles.signInTitle} accessibilityRole="header">
+        <View style={[styles.signInSection, columnStyle]}>
+          <Text
+            style={[styles.signInTitle, { fontSize: scaleFont(24, layout) }]}
+            accessibilityRole="header"
+          >
             {tr('auth.signInTitle')}
           </Text>
-          <Text style={styles.signInSubtitle}>{tr('auth.signInSubtitle')}</Text>
+          <Text style={[styles.signInSubtitle, { fontSize: scaleFont(14, layout) }]}>
+            {tr('auth.signInSubtitle')}
+          </Text>
 
           {error ? (
             <View style={styles.errorContainer} accessibilityRole="alert">
@@ -134,11 +154,13 @@ export default function AuthScreen() {
             ) : (
               <BrandIcon name="google" size={22} />
             )}
-            <Text style={styles.googleButtonText}>{tr('auth.signInGoogle')}</Text>
+            <Text style={[styles.googleButtonText, { fontSize: scaleFont(16, layout) }]}>
+              {tr('auth.signInGoogle')}
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.legalText}>{tr('auth.legalNotice')}</Text>
+        <Text style={[styles.legalText, columnStyle]}>{tr('auth.legalNotice')}</Text>
       </ScrollView>
     </AuthBackground>
   );
@@ -156,8 +178,11 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    gap: 32,
+  },
+  centeredColumn: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
   },
   hero: {
     alignItems: 'center',
@@ -173,7 +198,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: 'rgba(255,255,255,0.85)',
     textAlign: 'center',
-    maxWidth: 280,
     lineHeight: 22,
   },
   signInSection: {
