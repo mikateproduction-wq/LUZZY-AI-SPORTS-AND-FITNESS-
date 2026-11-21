@@ -19,7 +19,8 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
-        }
+        },
+        "NSMotionUsageDescription": "LUZZY AI uses motion data to count your steps and show your daily activity."
       }
     },
     "android": {
@@ -34,7 +35,10 @@
         "android.permission.READ_CONTACTS",
         "android.permission.RECORD_AUDIO"
       ],
-      "usesCleartextTraffic": false
+      "usesCleartextTraffic": false,
+      "permissions": [
+        "android.permission.ACTIVITY_RECOGNITION"
+      ]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -48,10 +52,16 @@
       "expo-splash-screen",
       "expo-status-bar",
       "expo-video",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "LUZZY AI uses motion data to count your steps and show your daily activity."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
     }
   }
-}
+}

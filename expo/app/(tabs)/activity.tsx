@@ -1,5 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { LineChart, BarChart, PieChart as RNPieChart } from 'react-native-chart-kit';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform, TextInput, ActivityIndicator, Share, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +10,8 @@ import { useActivity } from '@/contexts/ActivityContext';
 import { ActivityDayStats } from '@/types/fitness';
 import { logger } from '@/utils/logger';
 import { useResponsive } from '@/hooks/useResponsive';
+import { useTodaySteps } from '@/hooks/useTodaySteps';
+import { DAILY_STEP_GOAL } from '@/lib/stepTally';
 
 type Range = 'today' | 'week' | 'month';
 
@@ -46,11 +47,6 @@ export default function ActivityScreen() {
   const [range, setRange] = useState<Range>('today');
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar');
 
-  const [pedometerAvailable, setPedometerAvailable] = useState<boolean | null>(null);
-  const [pastStepCount, setPastStepCount] = useState<number>(0);
-  const [liveStepCount, setLiveStepCount] = useState<number>(0);
-  const pedometerSubRef = useRef<{ remove: () => void } | null>(null);
-
   const [converterInput, setConverterInput] = useState<string>('');
   const [convertedKm, setConvertedKm] = useState<number | null>(null);
   const [convertedMeters, setConvertedMeters] = useState<number | null>(null);
@@ -60,8 +56,7 @@ export default function ActivityScreen() {
   const layout = useResponsive();
   const chartWidth = Math.min(layout.width, layout.contentMaxWidth ?? layout.width) - CHART_SIDE_MARGIN;
 
-  const totalSteps = pastStepCount + liveStepCount;
-  const DAILY_STEP_GOAL = 10000;
+  const { steps: totalSteps, status: pedometerStatus } = useTodaySteps();
   const stepProgress = Math.min(totalSteps / DAILY_STEP_GOAL, 1);
 
   useEffect(() => {
@@ -71,80 +66,6 @@ export default function ActivityScreen() {
       useNativeDriver: false,
     }).start();
   }, [stepProgress, stepProgressAnim]);
-
-  const stopPedometer = useCallback(() => {
-    if (pedometerSubRef.current) {
-      pedometerSubRef.current.remove();
-      pedometerSubRef.current = null;
-      logger.log('[Activity Pedometer] Subscription removed');
-    }
-  }, []);
-
-  const initPedometer = useCallback(async () => {
-    stopPedometer();
-
-    if (Platform.OS === 'web') {
-      setPedometerAvailable(false);
-      return;
-    }
-
-    try {
-      const { Pedometer } = await import('expo-sensors');
-      const isAvailable = await Pedometer.isAvailableAsync();
-      setPedometerAvailable(isAvailable);
-      logger.log('[Activity Pedometer] Available:', isAvailable);
-
-      if (!isAvailable) {
-        return;
-      }
-
-      const permission = await Pedometer.requestPermissionsAsync();
-      if (!permission.granted) {
-        setPedometerAvailable(false);
-        return;
-      }
-
-      if (Platform.OS === 'ios') {
-        const end = new Date();
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        try {
-          const result = await Pedometer.getStepCountAsync(start, end);
-          if (result) {
-            setPastStepCount(result.steps);
-          }
-        } catch (err) {
-          logger.warn('[Activity Pedometer] getStepCountAsync error:', err);
-        }
-      }
-
-      const subscription = Pedometer.watchStepCount((result) => {
-        setLiveStepCount(result.steps);
-      });
-
-      pedometerSubRef.current = subscription;
-      logger.log('[Activity Pedometer] Live subscription started');
-    } catch (error) {
-      logger.warn('[Activity Pedometer] Init error:', error);
-      setPedometerAvailable(false);
-    }
-  }, [stopPedometer]);
-
-  useFocusEffect(
-    useCallback(() => {
-      void initPedometer();
-
-      return () => {
-        stopPedometer();
-      };
-    }, [initPedometer, stopPedometer])
-  );
-
-  useEffect(() => {
-    return () => {
-      stopPedometer();
-    };
-  }, [stopPedometer]);
 
   const handleConvert = () => {
     const steps = parseInt(converterInput, 10);
@@ -306,7 +227,7 @@ export default function ActivityScreen() {
       );
     }
 
-    if (pedometerAvailable === null) {
+    if (pedometerStatus === 'idle' || pedometerStatus === 'loading') {
       return (
         <View style={[styles.pedometerCard, { backgroundColor: theme.colors.surface }]}>
           <ActivityIndicator size="small" color={theme.colors.primary} />
@@ -314,7 +235,7 @@ export default function ActivityScreen() {
       );
     }
 
-    if (pedometerAvailable === false) {
+    if (pedometerStatus === 'unavailable' || pedometerStatus === 'denied') {
       return (
         <View style={[styles.pedometerCard, { backgroundColor: theme.colors.surface }]}>
           <View style={styles.pedometerHeader}>
@@ -380,11 +301,11 @@ export default function ActivityScreen() {
           {Math.round(stepProgress * 100)}% — {DAILY_STEP_GOAL.toLocaleString()} {t('activity.steps').toLowerCase()}
         </Text>
 
-        {liveStepCount > 0 && (
+        {pedometerStatus === 'ready' && (
           <View style={styles.pedometerLiveRow}>
             <View style={[styles.liveDot, { backgroundColor: '#4ECDC4' }]} />
             <Text style={[styles.pedometerLiveText, { color: '#4ECDC4' }]}>
-              +{liveStepCount} live
+              {t('home.liveSteps')}
             </Text>
           </View>
         )}
@@ -595,10 +516,10 @@ export default function ActivityScreen() {
             <Text style={[styles.segmentLabel, { color: theme.colors.textSecondary }]}>6k</Text>
             <Text style={[styles.segmentLabel, { color: theme.colors.textSecondary }]}>10k</Text>
           </View>
-          {liveStepCount > 0 && (
+          {pedometerStatus === 'ready' && (
             <View style={styles.liveRow}>
               <View style={[styles.livePulseDot, { backgroundColor: '#4ECDC4' }]} />
-              <Text style={[styles.liveText, { color: '#4ECDC4' }]}>+{liveStepCount} en direct</Text>
+              <Text style={[styles.liveText, { color: '#4ECDC4' }]}>{t('home.liveSteps')}</Text>
             </View>
           )}
         </View>

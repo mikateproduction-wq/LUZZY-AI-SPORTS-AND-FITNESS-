@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useActivity } from '@/contexts/ActivityContext';
 import { EXERCISES } from '@/data/exercises';
 import WeatherCard from '@/components/WeatherCard';
+import { StepsCard } from '@/components/StepsCard';
 
 
 export default function HomeScreen() {
@@ -88,6 +89,8 @@ export default function HomeScreen() {
             </View>
 
             <WeatherCard />
+
+            <StepsCard />
 
             <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>{t('home.quickActions')}</Text>
 
